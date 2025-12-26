@@ -1,0 +1,90 @@
+#include "FreeRTOS.h"
+#include "task.h"
+#include "sys_core.h"
+#include "sleep.h"
+
+// 辅助函数：设置 4 个灯的状态
+static void Set_Leds(int l1, int l2, int l3, int l4) {
+    XGpioPs_WritePin(&Gpio, LED1_PIN, l1);
+    XGpioPs_WritePin(&Gpio, LED2_PIN, l2);
+    XGpioPs_WritePin(&Gpio, LED3_PIN, l3);
+    XGpioPs_WritePin(&Gpio, LED4_PIN, l4);
+}
+
+// Gamma 表 (保持不变)
+static const int gamma_steps[] = {
+      0,   2,   5,  10,  18,  30,  50,  80,
+    120, 180, 260, 360, 480, 620, 800, 1000,
+   1250, 1550, 1900, 2000
+};
+#define GAMMA_STEPS_COUNT (sizeof(gamma_steps)/sizeof(gamma_steps[0]))
+
+void Task_LED_Logic(void *pvParameters)
+{
+    const TickType_t xFastDelay = pdMS_TO_TICKS(150);
+    const TickType_t xSlowDelay = pdMS_TO_TICKS(500);
+    const int speed_factor = 45; // 呼吸速度
+
+    for (;;) {
+        switch (g_CurrentMode) {
+            // --- 模式 0: 4灯流水 ---
+            case MODE_WATERFALL:
+                Set_Leds(1, 0, 0, 0); vTaskDelay(xFastDelay);
+                Set_Leds(0, 1, 0, 0); vTaskDelay(xFastDelay);
+                Set_Leds(0, 0, 1, 0); vTaskDelay(xFastDelay);
+                Set_Leds(0, 0, 0, 1); vTaskDelay(xFastDelay);
+                // 回马枪
+                Set_Leds(0, 0, 1, 0); vTaskDelay(xFastDelay);
+                Set_Leds(0, 1, 0, 0); vTaskDelay(xFastDelay);
+                break;
+
+            // --- 模式 1: 4灯爆闪 ---
+            case MODE_ALL_BLINK:
+                Set_Leds(1, 1, 1, 1); vTaskDelay(xSlowDelay);
+                Set_Leds(0, 0, 0, 0); vTaskDelay(xSlowDelay);
+                break;
+
+            // --- 模式 2: 4灯呼吸 ---
+            case MODE_BREATH_SIM: {
+                int period = 2000;
+                // 渐亮
+                for(int i = 0; i < GAMMA_STEPS_COUNT; i++) {
+                    int on = gamma_steps[i]; int off = period - on;
+                    for(int k=0; k < speed_factor; k++) {
+                        if(on>0) { Set_Leds(1,1,1,1); usleep(on); }
+                        if(off>0){ Set_Leds(0,0,0,0); usleep(off); }
+                    }
+                }
+                Set_Leds(1,1,1,1); vTaskDelay(pdMS_TO_TICKS(500));
+                // 渐灭
+                for(int i = GAMMA_STEPS_COUNT - 1; i >= 0; i--) {
+                    int on = gamma_steps[i]; int off = period - on;
+                    for(int k=0; k < speed_factor; k++) {
+                        if(on>0) { Set_Leds(1,1,1,1); usleep(on); }
+                        if(off>0){ Set_Leds(0,0,0,0); usleep(off); }
+                    }
+                }
+                Set_Leds(0,0,0,0); vTaskDelay(pdMS_TO_TICKS(500));
+                break;
+            }
+
+            // --- 模式 3: 开关直控模式 (新增) ---
+            case MODE_SWITCH_CTRL: {
+                // 读取 4 个开关，直接映射到 4 个 LED
+                for(int i=0; i<4; i++) {
+                    int sw_val = XGpioPs_ReadPin(&Gpio, SW_BASE_PIN + i);
+                    XGpioPs_WritePin(&Gpio, LED_BASE_PIN + i, sw_val);
+                }
+                // 稍微延时，避免死循环占用总线太高
+                vTaskDelay(pdMS_TO_TICKS(20));
+                break;
+            }
+
+            // --- 默认: 全关 ---
+            default: // MODE_OFF
+                Set_Leds(0, 0, 0, 0);
+                vTaskDelay(pdMS_TO_TICKS(100));
+                break;
+        }
+    }
+}

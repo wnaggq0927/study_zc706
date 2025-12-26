@@ -1,0 +1,111 @@
+#include "FreeRTOS.h"
+#include "task.h"
+#include "sys_core.h"
+#include "sleep.h"
+#include "stdlib.h" // 用于生成随机数
+
+// 辅助函数：设置 4 个灯的状态 (L1, L2, L3, L4)
+static void Set_Leds(int l1, int l2, int l3, int l4) {
+    XGpioPs_WritePin(&Gpio, LED1_PIN, l1);
+    XGpioPs_WritePin(&Gpio, LED2_PIN, l2);
+    XGpioPs_WritePin(&Gpio, LED3_PIN, l3);
+    XGpioPs_WritePin(&Gpio, LED4_PIN, l4);
+}
+
+// 辅助函数：直接显示一个 4位二进制数 (0-15)
+// 例如 val=5 (0101) -> 灯灭,灯亮,灯灭,灯亮
+static void Show_Binary(u8 val) {
+    // 提取每一位：Bit3, Bit2, Bit1, Bit0
+    Set_Leds((val >> 3) & 1,
+             (val >> 2) & 1,
+             (val >> 1) & 1,
+             (val >> 0) & 1);
+}
+
+// 骰子动画效果
+static void Play_Dice_Animation() {
+    for(int i=0; i<15; i++) {
+        Show_Binary(rand() % 16); // 随机乱闪
+        usleep(50000 + (i * 10000)); // 越来越慢，制造悬念
+    }
+}
+
+void Task_LED_Logic(void *pvParameters)
+{
+    const TickType_t xDelayWaterfall = pdMS_TO_TICKS(150);
+    int counter = 0;      // 计数器变量
+    int dice_value = 0;   // 骰子点数
+    int last_sw_state = 0;// 记录开关状态用于检测动作
+
+    for (;;) {
+        switch (g_CurrentMode) {
+            // --- 模式 0: 流水灯 (保留经典) ---
+            case MODE_WATERFALL:
+                Set_Leds(1, 0, 0, 0); vTaskDelay(xDelayWaterfall);
+                Set_Leds(0, 1, 0, 0); vTaskDelay(xDelayWaterfall);
+                Set_Leds(0, 0, 1, 0); vTaskDelay(xDelayWaterfall);
+                Set_Leds(0, 0, 0, 1); vTaskDelay(xDelayWaterfall);
+                Set_Leds(0, 0, 1, 0); vTaskDelay(xDelayWaterfall);
+                Set_Leds(0, 1, 0, 0); vTaskDelay(xDelayWaterfall);
+                break;
+
+            // --- 模式 1: 开关直控 (保留测试用) ---
+            case MODE_SWITCH_CTRL: {
+                int led_map[4] = {LED1_PIN, LED2_PIN, LED3_PIN, LED4_PIN};
+                for(int i=0; i<4; i++) {
+                    int sw_val = XGpioPs_ReadPin(&Gpio, SW_BASE_PIN + i);
+                    XGpioPs_WritePin(&Gpio, led_map[i], sw_val);
+                }
+                vTaskDelay(pdMS_TO_TICKS(50));
+                break;
+            }
+
+            // --- 【新】模式 2: 二进制计数器 ---
+            case MODE_BINARY_CNT:
+                // 读取开关控制：
+                // SW1: ON=暂停, OFF=运行
+                // SW2: ON=倒数, OFF=正数
+                if (XGpioPs_ReadPin(&Gpio, SW_BASE_PIN + 0) == 0) { // 如果没暂停
+                    if (XGpioPs_ReadPin(&Gpio, SW_BASE_PIN + 1) == 0)
+                        counter++; // 正数
+                    else
+                        counter--; // 倒数
+                }
+
+                // 限制在 0-15 之间循环
+                if(counter > 15) counter = 0;
+                if(counter < 0)  counter = 15;
+
+                Show_Binary(counter);
+
+                // 读取 SW3 控制速度: ON=快(200ms), OFF=慢(1s)
+                if (XGpioPs_ReadPin(&Gpio, SW_BASE_PIN + 2))
+                    vTaskDelay(pdMS_TO_TICKS(200));
+                else
+                    vTaskDelay(pdMS_TO_TICKS(1000));
+                break;
+
+            // --- 【新】模式 3: 电子骰子 ---
+            case MODE_DICE_GAME:
+                // 检测 SW4 是否被拨动 (触发掷骰子)
+            {  int current_sw = XGpioPs_ReadPin(&Gpio, SW_BASE_PIN + 3);
+
+                if (current_sw != last_sw_state) {
+                    last_sw_state = current_sw; // 更新状态
+                    Play_Dice_Animation();      // 播放动画
+                    dice_value = (rand() % 6) + 1; // 生成 1-6
+                    Show_Binary(dice_value);    // 显示结果
+                }
+
+                // 没操作时保持显示最后的结果
+                vTaskDelay(pdMS_TO_TICKS(100));
+                break;
+            }
+            // --- 默认 ---
+            default:
+                Set_Leds(0, 0, 0, 0);
+                vTaskDelay(pdMS_TO_TICKS(100));
+                break;
+        }
+    }
+}

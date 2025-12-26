@@ -1,0 +1,32 @@
+#ifndef SYS_CORE_H
+#define SYS_CORE_H
+
+#include "xil_types.h"
+#include "xgpiops.h"
+
+// --- 硬件引脚定义 (基于 EMIO Width=8) ---
+// 输出: LED (EMIO 0-3)
+#define LED_BASE_PIN    54
+#define LED1_PIN        54
+#define LED2_PIN        55
+#define LED3_PIN        56
+#define LED4_PIN        57
+
+// 输入: SW (EMIO 4-7)
+#define SW_BASE_PIN     58
+// SW1=58, SW2=59, SW3=60, SW4=61
+
+// --- 运行模式枚举 ---
+typedef enum {
+    MODE_WATERFALL = 0,   // 模式0: 4灯流水
+    MODE_ALL_BLINK,       // 模式1: 4灯同步闪烁
+    MODE_BREATH_SIM,      // 模式2: 4灯呼吸
+    MODE_SWITCH_CTRL,     // 模式3: 开关直控 (新增!)
+    MODE_OFF              // 模式4: 全关
+} LedMode_t;
+
+// --- 全局变量 ---
+extern volatile LedMode_t g_CurrentMode;
+extern XGpioPs Gpio;
+
+#endif

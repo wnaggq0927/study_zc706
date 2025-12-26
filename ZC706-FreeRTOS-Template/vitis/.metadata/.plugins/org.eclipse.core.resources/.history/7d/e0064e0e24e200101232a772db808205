@@ -1,0 +1,34 @@
+#include "FreeRTOS.h"
+#include "task.h"
+#include "sys_core.h"
+#include "xil_printf.h"
+#include "xuartps_hw.h"
+
+volatile LedMode_t g_CurrentMode = MODE_WATERFALL;
+
+void Task_UART_Cmd(void *pvParameters)
+{
+    u8 RecvChar;
+    u32 UartBaseAddr = STDIN_BASEADDRESS;
+
+    xil_printf("\r\n=== 4-LED Control System ===\r\n");
+    xil_printf("1: Waterfall (4 LEDs)\r\n");
+    xil_printf("2: Blink All\r\n");
+    xil_printf("3: Breath Effect\r\n");
+    xil_printf("4: Switch Control (SW -> LED)\r\n"); // ÐÂÑ¡Ïî
+    xil_printf("0: Turn Off\r\n");
+
+    for (;;) {
+        if (XUartPs_IsReceiveData(UartBaseAddr)) {
+            RecvChar = XUartPs_ReadReg(UartBaseAddr, XUARTPS_FIFO_OFFSET);
+            switch(RecvChar) {
+                case '1': g_CurrentMode = MODE_WATERFALL;  xil_printf(">> Set: Waterfall\r\n"); break;
+                case '2': g_CurrentMode = MODE_ALL_BLINK;  xil_printf(">> Set: Blink\r\n"); break;
+                case '3': g_CurrentMode = MODE_BREATH_SIM; xil_printf(">> Set: Breath\r\n"); break;
+                case '4': g_CurrentMode = MODE_SWITCH_CTRL;xil_printf(">> Set: SW Control\r\n"); break;
+                case '0': g_CurrentMode = MODE_OFF;        xil_printf(">> Set: OFF\r\n"); break;
+            }
+        }
+        vTaskDelay(pdMS_TO_TICKS(50));
+    }
+}

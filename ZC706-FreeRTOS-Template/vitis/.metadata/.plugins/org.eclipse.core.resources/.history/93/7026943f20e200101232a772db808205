@@ -1,0 +1,29 @@
+#include "sys_core.h"
+#include "xparameters.h"
+#include "xil_printf.h"
+
+// 全局 GPIO 实例定义
+XGpioPs Gpio;
+
+// 硬件初始化函数
+int Setup_Hardware(void)
+{
+    XGpioPs_Config *ConfigPtr;
+    int Status;
+
+    xil_printf("[Init] Configuring Hardware...\r\n");
+
+    ConfigPtr = XGpioPs_LookupConfig(XPAR_XGPIOPS_0_DEVICE_ID);
+    Status = XGpioPs_CfgInitialize(&Gpio, ConfigPtr, ConfigPtr->BaseAddr);
+    if (Status != XST_SUCCESS) return XST_FAILURE;
+
+    // 批量配置三个灯为输出并使能
+    int pins[] = {LED1_PIN, LED2_PIN, LED3_PIN};
+    for(int i=0; i<3; i++) {
+        XGpioPs_SetDirectionPin(&Gpio, pins[i], 1);
+        XGpioPs_SetOutputEnablePin(&Gpio, pins[i], 1);
+        XGpioPs_WritePin(&Gpio, pins[i], 0); // 默认全灭
+    }
+
+    return XST_SUCCESS;
+}

@@ -1,0 +1,24 @@
+Nothing to build in platform 'zc706'
+
+14:45:51 **** Incremental Build of configuration Debug for project Final_Project ****
+make all 
+E:/xilinx/Vitis/2021.2/gnuwin/bin/make --no-print-directory pre-build
+a9-linaro-pre-build-step
+' '
+E:/xilinx/Vitis/2021.2/gnuwin/bin/make --no-print-directory main-build
+'Building file: ../src/task_led.c'
+'Invoking: ARM v7 gcc compiler'
+arm-none-eabi-gcc -Wall -O0 -g3 -c -fmessage-length=0 -MT"src/task_led.o" -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard -IF:/zc706/vitis/zc706/export/zc706/sw/zc706/freertos_domain/bspinclude/include -MMD -MP -MF"src/task_led.d" -MT"src/task_led.o" -o "src/task_led.o" "../src/task_led.c"
+'Finished building: ../src/task_led.c'
+' '
+'Building target: Final_Project.elf'
+'Invoking: ARM v7 gcc linker'
+arm-none-eabi-gcc -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard -Wl,-build-id=none -specs=Xilinx.spec -Wl,-T -Wl,../src/lscript.ld -LF:/zc706/vitis/zc706/export/zc706/sw/zc706/freertos_domain/bsplib/lib -o "Final_Project.elf"  ./src/main.o ./src/sys_hw.o ./src/task_cmd.o ./src/task_led.o   -Wl,--start-group,-lxil,-lfreertos,-lgcc,-lc,--end-group
+'Finished building target: Final_Project.elf'
+' '
+'Invoking: ARM v7 Print Size'
+arm-none-eabi-size Final_Project.elf  |tee "Final_Project.elf.size"
+   text	   data	    bss	    dec	    hex	filename
+  89346	   3344	  88768	 181458	  2c4d2	Final_Project.elf
+'Finished building: Final_Project.elf.size'
+' '

@@ -1,0 +1,25 @@
+#ifndef SYS_CORE_H
+#define SYS_CORE_H
+
+#include "xil_types.h"
+#include "xgpiops.h"
+
+// --- 硬件引脚定义 (基于你的 EMIO) ---
+#define LED1_PIN    54
+#define LED2_PIN    55
+#define LED3_PIN    56
+
+// --- 运行模式枚举 ---
+typedef enum {
+    MODE_WATERFALL = 0, // 模式0: 流水灯
+    MODE_ALL_BLINK,     // 模式1: 整体闪烁
+    MODE_BREATH_SIM,    // 模式2: 模拟呼吸 (PWM占空比)
+    MODE_OFF            // 模式3: 全关
+} LedMode_t;
+
+// --- 全局变量声明 ---
+// volatile 关键字很重要，确保多任务间访问时数据是最新的
+extern volatile LedMode_t g_CurrentMode;
+extern XGpioPs Gpio;
+
+#endif

@@ -1,0 +1,140 @@
+/*
+ * FreeRTOS Vitis Demo for ZC706 EMIO LEDs
+ * 硬件要求: 3个 LED 连接在 EMIO 0, 1, 2 (Pin 54, 55, 56)
+ */
+
+/* FreeRTOS 头文件 */
+#include "FreeRTOS.h"
+#include "task.h"
+#include "semphr.h"
+
+/* Xilinx 硬件驱动 */
+#include "xparameters.h"
+#include "xgpiops.h"
+#include "xil_printf.h"
+
+// -------------------------------------------------------------------------
+// 1. 硬件引脚定义 (基于你刚才测试成功的引脚)
+// -------------------------------------------------------------------------
+#define LED1_PIN    54  // EMIO 0
+#define LED2_PIN    55  // EMIO 1
+#define LED3_PIN    56  // EMIO 2
+
+// -------------------------------------------------------------------------
+// 2. 全局变量与句柄
+// -------------------------------------------------------------------------
+XGpioPs Gpio;  // GPIO 驱动实例
+
+// -------------------------------------------------------------------------
+// 3. 硬件初始化函数 (只运行一次)
+// -------------------------------------------------------------------------
+int Setup_Hardware(void)
+{
+    XGpioPs_Config *ConfigPtr;
+    int Status;
+
+    xil_printf("--- Hardware Setup ---\r\n");
+
+    /* 初始化 PS GPIO 驱动 */
+    ConfigPtr = XGpioPs_LookupConfig(XPAR_XGPIOPS_0_DEVICE_ID);
+    Status = XGpioPs_CfgInitialize(&Gpio, ConfigPtr, ConfigPtr->BaseAddr);
+    if (Status != XST_SUCCESS) {
+        xil_printf("GPIO Init Failed\r\n");
+        return XST_FAILURE;
+    }
+
+    /* 配置 LED 引脚为输出并使能 */
+    // LED 1
+    XGpioPs_SetDirectionPin(&Gpio, LED1_PIN, 1);
+    XGpioPs_SetOutputEnablePin(&Gpio, LED1_PIN, 1);
+    XGpioPs_WritePin(&Gpio, LED1_PIN, 0); // 默认灭
+
+    // LED 2
+    XGpioPs_SetDirectionPin(&Gpio, LED2_PIN, 1);
+    XGpioPs_SetOutputEnablePin(&Gpio, LED2_PIN, 1);
+    XGpioPs_WritePin(&Gpio, LED2_PIN, 0); // 默认灭
+
+    // LED 3
+    XGpioPs_SetDirectionPin(&Gpio, LED3_PIN, 1);
+    XGpioPs_SetOutputEnablePin(&Gpio, LED3_PIN, 1);
+    XGpioPs_WritePin(&Gpio, LED3_PIN, 0); // 默认灭
+
+    return XST_SUCCESS;
+}
+
+// -------------------------------------------------------------------------
+// 4. 任务 A: 流水灯控制 (核心视觉效果)
+// -------------------------------------------------------------------------
+static void Task_Waterfall(void *pvParameters)
+{
+    // 定义延时时间：200ms
+    const TickType_t xDelay = pdMS_TO_TICKS(200);
+
+    for (;;) {
+        // 状态 1: 左灯亮
+        XGpioPs_WritePin(&Gpio, LED1_PIN, 1);
+        XGpioPs_WritePin(&Gpio, LED2_PIN, 0);
+        XGpioPs_WritePin(&Gpio, LED3_PIN, 0);
+        vTaskDelay(xDelay); // FreeRTOS 专用延时，释放 CPU
+
+        // 状态 2: 中灯亮
+        XGpioPs_WritePin(&Gpio, LED1_PIN, 0);
+        XGpioPs_WritePin(&Gpio, LED2_PIN, 1);
+        XGpioPs_WritePin(&Gpio, LED3_PIN, 0);
+        vTaskDelay(xDelay);
+
+        // 状态 3: 右灯亮
+        XGpioPs_WritePin(&Gpio, LED1_PIN, 0);
+        XGpioPs_WritePin(&Gpio, LED2_PIN, 0);
+        XGpioPs_WritePin(&Gpio, LED3_PIN, 1);
+        vTaskDelay(xDelay);
+
+        // 状态 4: 回中间 (增加一点动感)
+        XGpioPs_WritePin(&Gpio, LED1_PIN, 0);
+        XGpioPs_WritePin(&Gpio, LED2_PIN, 1);
+        XGpioPs_WritePin(&Gpio, LED3_PIN, 0);
+        vTaskDelay(xDelay);
+    }
+}
+
+// -------------------------------------------------------------------------
+// 5. 任务 B: 串口心跳 (证明系统没死机)
+// -------------------------------------------------------------------------
+static void Task_Console(void *pvParameters)
+{
+    const TickType_t xDelay = pdMS_TO_TICKS(1000); // 1秒一次
+    int count = 0;
+
+    for (;;) {
+        xil_printf("[FreeRTOS] System Running... Count: %d\r\n", count++);
+        vTaskDelay(xDelay);
+    }
+}
+
+// -------------------------------------------------------------------------
+// 6. 主函数
+// -------------------------------------------------------------------------
+int main(void)
+{
+    xil_printf("\r\n--- FreeRTOS Reboot Start ---\r\n");
+
+    // 1. 初始化硬件 (此时还在裸机状态)
+    if (Setup_Hardware() != XST_SUCCESS) {
+        xil_printf("System Init Failed!\r\n");
+        return -1;
+    }
+
+    // 2. 创建任务
+    // 任务 A: 流水灯 (优先级 2)
+    xTaskCreate(Task_Waterfall, "LED_Flow", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 2, NULL);
+
+    // 任务 B: 串口打印 (优先级 1)
+    xTaskCreate(Task_Console, "UART_Print", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 1, NULL);
+
+    // 3. 启动调度器 (从此 CPU 交给 FreeRTOS)
+    xil_printf("Starting Scheduler...\r\n");
+    vTaskStartScheduler();
+
+    // 正常情况下不会执行到这里
+    for (;;);
+}

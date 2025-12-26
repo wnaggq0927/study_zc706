@@ -1,0 +1,36 @@
+#ifndef SYS_CORE_H
+#define SYS_CORE_H
+
+#include "xil_types.h"
+#include "xgpiops.h"
+
+// --- 硬件引脚重映射 (根据你的实际观察) ---
+// 逻辑顺序 (左->右)  |  物理引脚 (EMIO)
+#define LED1_PIN        57  // 左1 (原EMIO 3)
+#define LED2_PIN        55  // 左2 (原EMIO 1)
+#define LED3_PIN        56  // 左3 (原EMIO 2)
+#define LED4_PIN        54  // 左4 (原EMIO 0)
+
+// 注意：LED_BASE_PIN 宏只是为了 sys_hw.c 初始化方便，
+// 只要初始化覆盖了 54-57 即可，这里不需要改，
+// 因为 sys_hw.c 是把 54,55,56,57 全部设为输出，顺序不影响初始化结果。
+#define LED_BASE_PIN    54
+
+// 输入: SW (EMIO 4-7) -> 保持不变
+#define SW_BASE_PIN     58
+// SW1=58, SW2=59, SW3=60, SW4=61
+
+// --- 运行模式枚举 ---
+typedef enum {
+    MODE_WATERFALL = 0,   // 模式0: 4灯流水
+    MODE_ALL_BLINK,       // 模式1: 4灯同步闪烁
+    MODE_BREATH_SIM,      // 模式2: 4灯呼吸
+    MODE_SWITCH_CTRL,     // 模式3: 开关直控
+    MODE_OFF              // 模式4: 全关
+} LedMode_t;
+
+// --- 全局变量 ---
+extern volatile LedMode_t g_CurrentMode;
+extern XGpioPs Gpio;
+
+#endif

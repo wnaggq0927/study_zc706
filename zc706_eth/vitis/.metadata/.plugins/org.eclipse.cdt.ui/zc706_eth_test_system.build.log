@@ -1,0 +1,10 @@
+16:33:14 **** Incremental Build of configuration Debug for project zc706_eth_test_system ****
+make all 
+Generating bif file for the system project
+generate_system_bif.bat 52351 F:/study_vivado_ps/zc706_eth/vitis/zc706/export/zc706/zc706.xpfm freertos_domain F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test_system/Debug/system.bif
+sdcard_gen --xpfm F:/study_vivado_ps/zc706_eth/vitis/zc706/export/zc706/zc706.xpfm --sys_config zc706 --bif F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test_system/Debug/system.bif --bitstream F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/_ide/bitstream/design_1_wrapper.bit --elf F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/Debug/zc706_eth_test.elf,ps7_cortexa9_0
+creating BOOT.BIN using F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/_ide/bitstream/design_1_wrapper.bit
+Running E:/xilinx/Vitis/2021.2/bin/bootgen  -image F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test_system/Debug/sd_card_temp/boot.bif -w -o i BOOT.BIN
+
+16:33:22 Build Finished (took 7s.665ms)
+

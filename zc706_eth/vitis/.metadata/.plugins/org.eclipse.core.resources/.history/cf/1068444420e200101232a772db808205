@@ -1,0 +1,107 @@
+#include "FreeRTOS.h"
+#include "task.h"
+#include "sys_core.h"
+#include "sleep.h" // 引入微秒延时函数
+
+// 辅助函数：设置三个灯的状态
+static void Set_Leds(int l1, int l2, int l3) {
+    XGpioPs_WritePin(&Gpio, LED1_PIN, l1);
+    XGpioPs_WritePin(&Gpio, LED2_PIN, l2);
+    XGpioPs_WritePin(&Gpio, LED3_PIN, l3);
+}
+
+// --- 视觉优化核心：伽马亮度表 (Gamma Correction) ---
+// 这里的数值是非线性的，专门为了拟合人眼对亮度的感知
+// 总周期定为 2000us (2ms) -> 500Hz 频率，绝对不闪
+// 数组里的值代表“亮”的时间(us)
+static const int gamma_steps[] = {
+      0,   2,   5,  10,  18,  30,  50,  80,
+    120, 180, 260, 360, 480, 620, 800, 1000,
+   1250, 1550, 1900, 2000
+};
+// 数组长度
+#define GAMMA_STEPS_COUNT (sizeof(gamma_steps)/sizeof(gamma_steps[0]))
+
+// 任务主函数
+void Task_LED_Logic(void *pvParameters)
+{
+    const TickType_t xFastDelay = pdMS_TO_TICKS(200);
+    const TickType_t xSlowDelay = pdMS_TO_TICKS(500);
+
+    // 呼吸速度控制：每个亮度等级停留的次数
+    // 数字越大，呼吸越慢。建议 8-15 之间
+    const int speed_factor = 45;
+
+    for (;;) {
+        switch (g_CurrentMode) {
+            // --- 模式 0: 流水灯 ---
+            case MODE_WATERFALL:
+                Set_Leds(1, 0, 0); vTaskDelay(xFastDelay);
+                Set_Leds(0, 1, 0); vTaskDelay(xFastDelay);
+                Set_Leds(0, 0, 1); vTaskDelay(xFastDelay);
+                break;
+
+            // --- 模式 1: 整体同步闪烁 ---
+            case MODE_ALL_BLINK:
+                Set_Leds(1, 1, 1); vTaskDelay(xSlowDelay);
+                Set_Leds(0, 0, 0); vTaskDelay(xSlowDelay);
+                break;
+
+            // --- 模式 2: 极致丝滑呼吸灯 ---
+            case MODE_BREATH_SIM:
+            {
+                // 总周期 2000us
+                int period = 2000;
+
+                // A. 渐亮过程 (从小到大查表)
+                for(int i = 0; i < GAMMA_STEPS_COUNT; i++) {
+                    int on_time = gamma_steps[i];
+                    int off_time = period - on_time;
+
+                    // 在当前亮度停留一段时间 (软件PWM生成)
+                    for(int k=0; k < speed_factor; k++) {
+                        // 亮
+                        if(on_time > 0) {
+                            Set_Leds(1, 1, 1);
+                            usleep(on_time);
+                        }
+                        // 灭
+                        if(off_time > 0) {
+                            Set_Leds(0, 0, 0);
+                            usleep(off_time);
+                        }
+                    }
+                }
+
+                // B. 渐灭过程 (从大到小查表)
+                for(int i = GAMMA_STEPS_COUNT - 1; i >= 0; i--) {
+                    int on_time = gamma_steps[i];
+                    int off_time = period - on_time;
+
+                    for(int k=0; k < speed_factor; k++) {
+                        if(on_time > 0) {
+                            Set_Leds(1, 1, 1);
+                            usleep(on_time);
+                        }
+                        if(off_time > 0) {
+                            Set_Leds(0, 0, 0);
+                            usleep(off_time);
+                        }
+                    }
+                }
+
+                // C. 稍微停顿一下全黑，让呼吸有间隔感
+                Set_Leds(0, 0, 0);
+                vTaskDelay(pdMS_TO_TICKS(300));
+
+                break;
+            }
+
+            // --- 默认: 全关 ---
+            default:
+                Set_Leds(0, 0, 0);
+                vTaskDelay(pdMS_TO_TICKS(100));
+                break;
+        }
+    }
+}

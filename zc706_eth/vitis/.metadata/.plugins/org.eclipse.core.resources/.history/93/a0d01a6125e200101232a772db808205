@@ -1,0 +1,38 @@
+#include "FreeRTOS.h"
+#include "task.h"
+#include "sys_core.h"
+#include "xil_printf.h"
+#include "xuartps_hw.h"
+
+volatile LedMode_t g_CurrentMode = MODE_WATERFALL;
+
+void Task_UART_Cmd(void *pvParameters)
+{
+    u8 RecvChar;
+    u32 UartBaseAddr = STDIN_BASEADDRESS;
+
+    xil_printf("\r\n=== Zynq Ultimate Playground ===\r\n");
+    xil_printf("1: Waterfall\r\n");
+    xil_printf("2: Switch Direct\r\n");
+    xil_printf("3: Binary Counter\r\n");
+    xil_printf("4: Dice Game\r\n");
+    xil_printf("5: Reflex Test (Wait for light, toggle SW1)\r\n");
+    xil_printf("6: SOS Signal\r\n");
+    xil_printf("0: Off\r\n");
+
+    for (;;) {
+        if (XUartPs_IsReceiveData(UartBaseAddr)) {
+            RecvChar = XUartPs_ReadReg(UartBaseAddr, XUARTPS_FIFO_OFFSET);
+            switch(RecvChar) {
+                case '1': g_CurrentMode = MODE_WATERFALL;   xil_printf(">> Set: Waterfall\r\n"); break;
+                case '2': g_CurrentMode = MODE_SWITCH_CTRL; xil_printf(">> Set: Switch Ctrl\r\n"); break;
+                case '3': g_CurrentMode = MODE_BINARY_CNT;  xil_printf(">> Set: Binary Cnt\r\n"); break;
+                case '4': g_CurrentMode = MODE_DICE_GAME;   xil_printf(">> Set: Dice Game\r\n"); break;
+                case '5': g_CurrentMode = MODE_REFLEX_GAME; xil_printf(">> Set: Reflex Test!\r\n"); break;
+                case '6': g_CurrentMode = MODE_SOS_SIGNAL;  xil_printf(">> Set: SOS Mode\r\n"); break;
+                case '0': g_CurrentMode = MODE_OFF;         xil_printf(">> Set: OFF\r\n"); break;
+            }
+        }
+        vTaskDelay(pdMS_TO_TICKS(50));
+    }
+}

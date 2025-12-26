@@ -1,0 +1,53 @@
+#include "FreeRTOS.h"
+#include "task.h"
+#include "sys_core.h"
+
+// 辅助函数：设置三个灯的状态
+static void Set_Leds(int l1, int l2, int l3) {
+    XGpioPs_WritePin(&Gpio, LED1_PIN, l1);
+    XGpioPs_WritePin(&Gpio, LED2_PIN, l2);
+    XGpioPs_WritePin(&Gpio, LED3_PIN, l3);
+}
+
+// 任务主函数
+void Task_LED_Logic(void *pvParameters)
+{
+    const TickType_t xFastDelay = pdMS_TO_TICKS(200);
+    const TickType_t xSlowDelay = pdMS_TO_TICKS(500);
+
+    for (;;) {
+        switch (g_CurrentMode) {
+            // --- 模式 0: 流水灯 ---
+            case MODE_WATERFALL:
+                Set_Leds(1, 0, 0); vTaskDelay(xFastDelay);
+                Set_Leds(0, 1, 0); vTaskDelay(xFastDelay);
+                Set_Leds(0, 0, 1); vTaskDelay(xFastDelay);
+                break;
+
+            // --- 模式 1: 整体同步闪烁 ---
+            case MODE_ALL_BLINK:
+                Set_Leds(1, 1, 1); vTaskDelay(xSlowDelay);
+                Set_Leds(0, 0, 0); vTaskDelay(xSlowDelay);
+                break;
+
+            // --- 模式 2: 模拟呼吸 (软件PWM) ---
+            // 注意: 在RTOS里用延时模拟PWM会费一点CPU，但效果直观
+            case MODE_BREATH_SIM:
+                for(int i=0; i<10; i++) { // 渐亮
+                    Set_Leds(1, 1, 1); vTaskDelay(pdMS_TO_TICKS(i*2));
+                    Set_Leds(0, 0, 0); vTaskDelay(pdMS_TO_TICKS(20 - i*2));
+                }
+                for(int i=10; i>0; i--) { // 渐灭
+                    Set_Leds(1, 1, 1); vTaskDelay(pdMS_TO_TICKS(i*2));
+                    Set_Leds(0, 0, 0); vTaskDelay(pdMS_TO_TICKS(20 - i*2));
+                }
+                break;
+
+            // --- 默认: 全关 ---
+            default:
+                Set_Leds(0, 0, 0);
+                vTaskDelay(pdMS_TO_TICKS(100)); // 这里的延时是为了防止死循环空转占满CPU
+                break;
+        }
+    }
+}

@@ -1,0 +1,74 @@
+#include "FreeRTOS.h"
+#include "task.h"
+#include "sys_core.h"
+
+// 辅助函数：设置三个灯的状态
+static void Set_Leds(int l1, int l2, int l3) {
+    XGpioPs_WritePin(&Gpio, LED1_PIN, l1);
+    XGpioPs_WritePin(&Gpio, LED2_PIN, l2);
+    XGpioPs_WritePin(&Gpio, LED3_PIN, l3);
+}
+
+// 任务主函数
+void Task_LED_Logic(void *pvParameters)
+{
+    const TickType_t xFastDelay = pdMS_TO_TICKS(200);
+    const TickType_t xSlowDelay = pdMS_TO_TICKS(500);
+
+    // PWM 周期定义 (20ms = 50Hz，保证人眼看不到闪烁)
+    const int pwm_period = 20;
+    // 每个亮度等级停留的次数 (次数越多，呼吸越慢)
+    // 设为 4 时：单向渐变时间 = 20级 * 4次 * 20ms = 1.6秒
+    const int hold_cycles = 8;
+
+    for (;;) {
+        switch (g_CurrentMode) {
+            // --- 模式 0: 流水灯 ---
+            case MODE_WATERFALL:
+                Set_Leds(1, 0, 0); vTaskDelay(xFastDelay);
+                Set_Leds(0, 1, 0); vTaskDelay(xFastDelay);
+                Set_Leds(0, 0, 1); vTaskDelay(xFastDelay);
+                break;
+
+            // --- 模式 1: 整体同步闪烁 ---
+            case MODE_ALL_BLINK:
+                Set_Leds(1, 1, 1); vTaskDelay(xSlowDelay);
+                Set_Leds(0, 0, 0); vTaskDelay(xSlowDelay);
+                break;
+
+            // --- 模式 2: 模拟呼吸 (优化版：更慢、更平滑) ---
+            case MODE_BREATH_SIM:
+                // 1. 渐亮过程 (i 代表“亮”的时间，从 1ms 到 19ms)
+                for(int i = 1; i < pwm_period; i++) {
+                    // 内层循环：在当前亮度 i 下停留一段时间
+                    for(int k = 0; k < hold_cycles; k++) {
+                        Set_Leds(1, 1, 1); vTaskDelay(pdMS_TO_TICKS(i));                 // 亮 i ms
+                        Set_Leds(0, 0, 0); vTaskDelay(pdMS_TO_TICKS(pwm_period - i));    // 灭 (20-i) ms
+                    }
+                }
+
+                // 2. 保持全亮一小会儿 (可选，看起来更自然)
+                Set_Leds(1, 1, 1);
+                vTaskDelay(pdMS_TO_TICKS(200));
+
+                // 3. 渐灭过程 (i 代表“亮”的时间，从 19ms 到 1ms)
+                for(int i = pwm_period - 1; i > 0; i--) {
+                    for(int k = 0; k < hold_cycles; k++) {
+                        Set_Leds(1, 1, 1); vTaskDelay(pdMS_TO_TICKS(i));                 // 亮 i ms
+                        Set_Leds(0, 0, 0); vTaskDelay(pdMS_TO_TICKS(pwm_period - i));    // 灭 (20-i) ms
+                    }
+                }
+
+                // 4. 保持全灭一小会儿
+                Set_Leds(0, 0, 0);
+                vTaskDelay(pdMS_TO_TICKS(300));
+                break;
+
+            // --- 默认: 全关 ---
+            default:
+                Set_Leds(0, 0, 0);
+                vTaskDelay(pdMS_TO_TICKS(100));
+                break;
+        }
+    }
+}

@@ -51,3 +51,4 @@ bsp reload
 catch {bsp regenerate}
 platform clean
 platform generate
+bsp reload

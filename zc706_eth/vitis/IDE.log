@@ -879,3 +879,359 @@ con
 
 14:46:06 INFO  : Launch script is exported to file 'F:\zc706\vitis\Final_Project_system\_ide\scripts\systemdebugger_final_project_system_standalone.tcl'
 14:52:27 INFO  : Disconnected from the channel tcfchan#31.
+15:42:44 INFO  : Launching XSCT server: xsct.bat -n  -interactive F:\study_vivado_ps\zc706_eth\vitis\temp_xsdb_launch_script.tcl
+15:42:48 INFO  : XSCT server has started successfully.
+15:42:48 INFO  : Successfully done setting XSCT server connection channel  
+15:42:48 INFO  : plnx-install-location is set to ''
+15:42:48 INFO  : Successfully done setting workspace for the tool. 
+15:42:50 INFO  : Registering command handlers for Vitis TCF services
+15:42:50 ERROR : Error encountered while initializing user repository paths
+Reason: No Platforms Found.
+
+
+15:42:50 INFO  : Platform repository initialization has completed.
+15:42:58 INFO  : Successfully done query RDI_DATADIR 
+15:51:45 INFO  : Result from executing command 'removePlatformRepo': 
+15:54:14 INFO  : Result from executing command 'getProjects': zc706
+15:54:14 INFO  : Result from executing command 'getPlatforms': 
+15:56:05 INFO  : Checking for BSP changes to sync application flags for project 'zc706_eth_test'...
+15:57:38 INFO  : Checking for BSP changes to sync application flags for project 'zc706_eth_test'...
+15:58:21 INFO  : Checking for BSP changes to sync application flags for project 'zc706_eth_test'...
+16:05:30 INFO  : Checking for BSP changes to sync application flags for project 'zc706_eth_test'...
+16:06:28 INFO  : Connected to target on host '127.0.0.1' and port '3121'.
+16:06:28 INFO  : Jtag cable 'Digilent JTAG-SMT2 210251A1B7E2' is selected.
+16:06:28 INFO  : 'jtag frequency' command is executed.
+16:06:28 INFO  : Context for 'APU' is selected.
+16:06:29 INFO  : System reset is completed.
+16:06:32 INFO  : 'after 3000' command is executed.
+16:06:32 INFO  : 'targets -set -filter {jtag_cable_name =~ "Digilent JTAG-SMT2 210251A1B7E2" && level==0 && jtag_device_ctx=="jsn-JTAG-SMT2-210251A1B7E2-23731093-0"}' command is executed.
+16:06:39 INFO  : Device configured successfully with "F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/_ide/bitstream/design_1_wrapper.bit"
+16:06:39 INFO  : Context for 'APU' is selected.
+16:06:39 INFO  : Hardware design and registers information is loaded from 'F:/study_vivado_ps/zc706_eth/vitis/zc706/export/zc706/hw/design_1_wrapper.xsa'.
+16:06:39 INFO  : 'configparams force-mem-access 1' command is executed.
+16:06:39 INFO  : Context for 'APU' is selected.
+16:06:39 INFO  : Sourcing of 'F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/_ide/psinit/ps7_init.tcl' is done.
+16:06:40 INFO  : 'ps7_init' command is executed.
+16:06:40 INFO  : 'ps7_post_config' command is executed.
+16:06:40 INFO  : Context for processor 'ps7_cortexa9_0' is selected.
+16:06:41 INFO  : The application 'F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/Debug/zc706_eth_test.elf' is downloaded to processor 'ps7_cortexa9_0'.
+16:06:41 INFO  : 'configparams force-mem-access 0' command is executed.
+16:06:41 INFO  : ----------------XSDB Script----------------
+connect -url tcp:127.0.0.1:3121
+targets -set -nocase -filter {name =~"APU*"}
+rst -system
+after 3000
+targets -set -filter {jtag_cable_name =~ "Digilent JTAG-SMT2 210251A1B7E2" && level==0 && jtag_device_ctx=="jsn-JTAG-SMT2-210251A1B7E2-23731093-0"}
+fpga -file F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/_ide/bitstream/design_1_wrapper.bit
+targets -set -nocase -filter {name =~"APU*"}
+loadhw -hw F:/study_vivado_ps/zc706_eth/vitis/zc706/export/zc706/hw/design_1_wrapper.xsa -mem-ranges [list {0x40000000 0xbfffffff}] -regs
+configparams force-mem-access 1
+targets -set -nocase -filter {name =~"APU*"}
+source F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/_ide/psinit/ps7_init.tcl
+ps7_init
+ps7_post_config
+targets -set -nocase -filter {name =~ "*A9*#0"}
+dow F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/Debug/zc706_eth_test.elf
+configparams force-mem-access 0
+----------------End of Script----------------
+
+16:06:41 INFO  : Context for processor 'ps7_cortexa9_0' is selected.
+16:06:41 INFO  : 'con' command is executed.
+16:06:41 INFO  : ----------------XSDB Script (After Launch)----------------
+targets -set -nocase -filter {name =~ "*A9*#0"}
+con
+----------------End of Script----------------
+
+16:06:41 INFO  : Launch script is exported to file 'F:\study_vivado_ps\zc706_eth\vitis\zc706_eth_test_system\_ide\scripts\systemdebugger_zc706_eth_test_system_standalone.tcl'
+16:07:24 INFO  : Disconnected from the channel tcfchan#4.
+16:07:24 INFO  : Connected to target on host '127.0.0.1' and port '3121'.
+16:07:24 INFO  : Jtag cable 'Digilent JTAG-SMT2 210251A1B7E2' is selected.
+16:07:24 INFO  : 'jtag frequency' command is executed.
+16:07:24 INFO  : Context for 'APU' is selected.
+16:07:24 INFO  : System reset is completed.
+16:07:27 INFO  : 'after 3000' command is executed.
+16:07:27 INFO  : 'targets -set -filter {jtag_cable_name =~ "Digilent JTAG-SMT2 210251A1B7E2" && level==0 && jtag_device_ctx=="jsn-JTAG-SMT2-210251A1B7E2-23731093-0"}' command is executed.
+16:07:35 INFO  : Device configured successfully with "F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/_ide/bitstream/design_1_wrapper.bit"
+16:07:35 INFO  : Context for 'APU' is selected.
+16:07:35 INFO  : Hardware design and registers information is loaded from 'F:/study_vivado_ps/zc706_eth/vitis/zc706/export/zc706/hw/design_1_wrapper.xsa'.
+16:07:35 INFO  : 'configparams force-mem-access 1' command is executed.
+16:07:35 INFO  : Context for 'APU' is selected.
+16:07:35 INFO  : Sourcing of 'F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/_ide/psinit/ps7_init.tcl' is done.
+16:07:36 INFO  : 'ps7_init' command is executed.
+16:07:36 INFO  : 'ps7_post_config' command is executed.
+16:07:36 INFO  : Context for processor 'ps7_cortexa9_0' is selected.
+16:07:36 INFO  : The application 'F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/Debug/zc706_eth_test.elf' is downloaded to processor 'ps7_cortexa9_0'.
+16:07:36 INFO  : 'configparams force-mem-access 0' command is executed.
+16:07:36 INFO  : ----------------XSDB Script----------------
+connect -url tcp:127.0.0.1:3121
+targets -set -nocase -filter {name =~"APU*"}
+rst -system
+after 3000
+targets -set -filter {jtag_cable_name =~ "Digilent JTAG-SMT2 210251A1B7E2" && level==0 && jtag_device_ctx=="jsn-JTAG-SMT2-210251A1B7E2-23731093-0"}
+fpga -file F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/_ide/bitstream/design_1_wrapper.bit
+targets -set -nocase -filter {name =~"APU*"}
+loadhw -hw F:/study_vivado_ps/zc706_eth/vitis/zc706/export/zc706/hw/design_1_wrapper.xsa -mem-ranges [list {0x40000000 0xbfffffff}] -regs
+configparams force-mem-access 1
+targets -set -nocase -filter {name =~"APU*"}
+source F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/_ide/psinit/ps7_init.tcl
+ps7_init
+ps7_post_config
+targets -set -nocase -filter {name =~ "*A9*#0"}
+dow F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/Debug/zc706_eth_test.elf
+configparams force-mem-access 0
+----------------End of Script----------------
+
+16:07:36 INFO  : Context for processor 'ps7_cortexa9_0' is selected.
+16:07:36 INFO  : 'con' command is executed.
+16:07:36 INFO  : ----------------XSDB Script (After Launch)----------------
+targets -set -nocase -filter {name =~ "*A9*#0"}
+con
+----------------End of Script----------------
+
+16:07:36 INFO  : Launch script is exported to file 'F:\study_vivado_ps\zc706_eth\vitis\zc706_eth_test_system\_ide\scripts\systemdebugger_zc706_eth_test_system_standalone.tcl'
+16:09:50 INFO  : Result from executing command 'removePlatformRepo': 
+16:11:11 INFO  : Result from executing command 'getProjects': zc706
+16:11:11 INFO  : Result from executing command 'getPlatforms': 
+16:11:20 INFO  : Checking for BSP changes to sync application flags for project 'zc706_eth_test'...
+16:11:20 INFO  : Updating application flags with new BSP settings...
+16:11:20 INFO  : Successfully updated application flags for project zc706_eth_test.
+16:11:34 INFO  : Disconnected from the channel tcfchan#5.
+16:11:34 INFO  : Connected to target on host '127.0.0.1' and port '3121'.
+16:11:34 INFO  : Jtag cable 'Digilent JTAG-SMT2 210251A1B7E2' is selected.
+16:11:34 INFO  : 'jtag frequency' command is executed.
+16:11:34 INFO  : Context for 'APU' is selected.
+16:11:34 INFO  : System reset is completed.
+16:11:37 INFO  : 'after 3000' command is executed.
+16:11:37 INFO  : 'targets -set -filter {jtag_cable_name =~ "Digilent JTAG-SMT2 210251A1B7E2" && level==0 && jtag_device_ctx=="jsn-JTAG-SMT2-210251A1B7E2-23731093-0"}' command is executed.
+16:11:45 INFO  : Device configured successfully with "F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/_ide/bitstream/design_1_wrapper.bit"
+16:11:45 INFO  : Context for 'APU' is selected.
+16:11:45 INFO  : Hardware design and registers information is loaded from 'F:/study_vivado_ps/zc706_eth/vitis/zc706/export/zc706/hw/design_1_wrapper.xsa'.
+16:11:45 INFO  : 'configparams force-mem-access 1' command is executed.
+16:11:45 INFO  : Context for 'APU' is selected.
+16:11:45 INFO  : Sourcing of 'F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/_ide/psinit/ps7_init.tcl' is done.
+16:11:45 INFO  : 'ps7_init' command is executed.
+16:11:45 INFO  : 'ps7_post_config' command is executed.
+16:11:46 INFO  : Context for processor 'ps7_cortexa9_0' is selected.
+16:11:46 INFO  : The application 'F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/Debug/zc706_eth_test.elf' is downloaded to processor 'ps7_cortexa9_0'.
+16:11:46 INFO  : 'configparams force-mem-access 0' command is executed.
+16:11:46 INFO  : ----------------XSDB Script----------------
+connect -url tcp:127.0.0.1:3121
+targets -set -nocase -filter {name =~"APU*"}
+rst -system
+after 3000
+targets -set -filter {jtag_cable_name =~ "Digilent JTAG-SMT2 210251A1B7E2" && level==0 && jtag_device_ctx=="jsn-JTAG-SMT2-210251A1B7E2-23731093-0"}
+fpga -file F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/_ide/bitstream/design_1_wrapper.bit
+targets -set -nocase -filter {name =~"APU*"}
+loadhw -hw F:/study_vivado_ps/zc706_eth/vitis/zc706/export/zc706/hw/design_1_wrapper.xsa -mem-ranges [list {0x40000000 0xbfffffff}] -regs
+configparams force-mem-access 1
+targets -set -nocase -filter {name =~"APU*"}
+source F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/_ide/psinit/ps7_init.tcl
+ps7_init
+ps7_post_config
+targets -set -nocase -filter {name =~ "*A9*#0"}
+dow F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/Debug/zc706_eth_test.elf
+configparams force-mem-access 0
+----------------End of Script----------------
+
+16:11:46 INFO  : Context for processor 'ps7_cortexa9_0' is selected.
+16:11:46 INFO  : 'con' command is executed.
+16:11:46 INFO  : ----------------XSDB Script (After Launch)----------------
+targets -set -nocase -filter {name =~ "*A9*#0"}
+con
+----------------End of Script----------------
+
+16:11:46 INFO  : Launch script is exported to file 'F:\study_vivado_ps\zc706_eth\vitis\zc706_eth_test_system\_ide\scripts\systemdebugger_zc706_eth_test_system_standalone.tcl'
+16:17:42 INFO  : Disconnected from the channel tcfchan#9.
+16:17:42 INFO  : Connected to target on host '127.0.0.1' and port '3121'.
+16:17:43 INFO  : Jtag cable 'Digilent JTAG-SMT2 210251A1B7E2' is selected.
+16:17:43 INFO  : 'jtag frequency' command is executed.
+16:17:43 INFO  : Context for 'APU' is selected.
+16:17:43 INFO  : System reset is completed.
+16:17:46 INFO  : 'after 3000' command is executed.
+16:17:46 INFO  : 'targets -set -filter {jtag_cable_name =~ "Digilent JTAG-SMT2 210251A1B7E2" && level==0 && jtag_device_ctx=="jsn-JTAG-SMT2-210251A1B7E2-23731093-0"}' command is executed.
+16:17:53 INFO  : Device configured successfully with "F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/_ide/bitstream/design_1_wrapper.bit"
+16:17:54 INFO  : Context for 'APU' is selected.
+16:17:54 INFO  : Hardware design and registers information is loaded from 'F:/study_vivado_ps/zc706_eth/vitis/zc706/export/zc706/hw/design_1_wrapper.xsa'.
+16:17:54 INFO  : 'configparams force-mem-access 1' command is executed.
+16:17:54 INFO  : Context for 'APU' is selected.
+16:17:54 INFO  : Sourcing of 'F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/_ide/psinit/ps7_init.tcl' is done.
+16:17:54 INFO  : 'ps7_init' command is executed.
+16:17:54 INFO  : 'ps7_post_config' command is executed.
+16:17:54 INFO  : Context for processor 'ps7_cortexa9_0' is selected.
+16:17:55 INFO  : The application 'F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/Debug/zc706_eth_test.elf' is downloaded to processor 'ps7_cortexa9_0'.
+16:17:55 INFO  : 'configparams force-mem-access 0' command is executed.
+16:17:55 INFO  : ----------------XSDB Script----------------
+connect -url tcp:127.0.0.1:3121
+targets -set -nocase -filter {name =~"APU*"}
+rst -system
+after 3000
+targets -set -filter {jtag_cable_name =~ "Digilent JTAG-SMT2 210251A1B7E2" && level==0 && jtag_device_ctx=="jsn-JTAG-SMT2-210251A1B7E2-23731093-0"}
+fpga -file F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/_ide/bitstream/design_1_wrapper.bit
+targets -set -nocase -filter {name =~"APU*"}
+loadhw -hw F:/study_vivado_ps/zc706_eth/vitis/zc706/export/zc706/hw/design_1_wrapper.xsa -mem-ranges [list {0x40000000 0xbfffffff}] -regs
+configparams force-mem-access 1
+targets -set -nocase -filter {name =~"APU*"}
+source F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/_ide/psinit/ps7_init.tcl
+ps7_init
+ps7_post_config
+targets -set -nocase -filter {name =~ "*A9*#0"}
+dow F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/Debug/zc706_eth_test.elf
+configparams force-mem-access 0
+----------------End of Script----------------
+
+16:17:55 INFO  : Context for processor 'ps7_cortexa9_0' is selected.
+16:17:55 INFO  : 'con' command is executed.
+16:17:55 INFO  : ----------------XSDB Script (After Launch)----------------
+targets -set -nocase -filter {name =~ "*A9*#0"}
+con
+----------------End of Script----------------
+
+16:17:55 INFO  : Launch script is exported to file 'F:\study_vivado_ps\zc706_eth\vitis\zc706_eth_test_system\_ide\scripts\systemdebugger_zc706_eth_test_system_standalone.tcl'
+16:19:32 INFO  : Checking for BSP changes to sync application flags for project 'zc706_eth_test'...
+16:22:43 INFO  : Checking for BSP changes to sync application flags for project 'zc706_eth_test'...
+16:25:05 INFO  : Checking for BSP changes to sync application flags for project 'zc706_eth_test'...
+16:25:44 INFO  : Checking for BSP changes to sync application flags for project 'zc706_eth_test'...
+16:26:50 INFO  : Checking for BSP changes to sync application flags for project 'zc706_eth_test'...
+16:27:29 INFO  : Checking for BSP changes to sync application flags for project 'zc706_eth_test'...
+16:27:50 INFO  : Disconnected from the channel tcfchan#10.
+16:27:50 INFO  : Connected to target on host '127.0.0.1' and port '3121'.
+16:27:50 INFO  : Jtag cable 'Digilent JTAG-SMT2 210251A1B7E2' is selected.
+16:27:50 INFO  : 'jtag frequency' command is executed.
+16:27:50 INFO  : Context for 'APU' is selected.
+16:27:50 INFO  : System reset is completed.
+16:27:53 INFO  : 'after 3000' command is executed.
+16:27:54 INFO  : 'targets -set -filter {jtag_cable_name =~ "Digilent JTAG-SMT2 210251A1B7E2" && level==0 && jtag_device_ctx=="jsn-JTAG-SMT2-210251A1B7E2-23731093-0"}' command is executed.
+16:28:01 INFO  : Device configured successfully with "F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/_ide/bitstream/design_1_wrapper.bit"
+16:28:01 INFO  : Context for 'APU' is selected.
+16:28:01 INFO  : Hardware design and registers information is loaded from 'F:/study_vivado_ps/zc706_eth/vitis/zc706/export/zc706/hw/design_1_wrapper.xsa'.
+16:28:01 INFO  : 'configparams force-mem-access 1' command is executed.
+16:28:01 INFO  : Context for 'APU' is selected.
+16:28:01 INFO  : Sourcing of 'F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/_ide/psinit/ps7_init.tcl' is done.
+16:28:02 INFO  : 'ps7_init' command is executed.
+16:28:02 INFO  : 'ps7_post_config' command is executed.
+16:28:02 INFO  : Context for processor 'ps7_cortexa9_0' is selected.
+16:28:03 INFO  : The application 'F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/Debug/zc706_eth_test.elf' is downloaded to processor 'ps7_cortexa9_0'.
+16:28:03 INFO  : 'configparams force-mem-access 0' command is executed.
+16:28:03 INFO  : ----------------XSDB Script----------------
+connect -url tcp:127.0.0.1:3121
+targets -set -nocase -filter {name =~"APU*"}
+rst -system
+after 3000
+targets -set -filter {jtag_cable_name =~ "Digilent JTAG-SMT2 210251A1B7E2" && level==0 && jtag_device_ctx=="jsn-JTAG-SMT2-210251A1B7E2-23731093-0"}
+fpga -file F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/_ide/bitstream/design_1_wrapper.bit
+targets -set -nocase -filter {name =~"APU*"}
+loadhw -hw F:/study_vivado_ps/zc706_eth/vitis/zc706/export/zc706/hw/design_1_wrapper.xsa -mem-ranges [list {0x40000000 0xbfffffff}] -regs
+configparams force-mem-access 1
+targets -set -nocase -filter {name =~"APU*"}
+source F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/_ide/psinit/ps7_init.tcl
+ps7_init
+ps7_post_config
+targets -set -nocase -filter {name =~ "*A9*#0"}
+dow F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/Debug/zc706_eth_test.elf
+configparams force-mem-access 0
+----------------End of Script----------------
+
+16:28:03 INFO  : Context for processor 'ps7_cortexa9_0' is selected.
+16:28:03 INFO  : 'con' command is executed.
+16:28:03 INFO  : ----------------XSDB Script (After Launch)----------------
+targets -set -nocase -filter {name =~ "*A9*#0"}
+con
+----------------End of Script----------------
+
+16:28:03 INFO  : Launch script is exported to file 'F:\study_vivado_ps\zc706_eth\vitis\zc706_eth_test_system\_ide\scripts\systemdebugger_zc706_eth_test_system_standalone.tcl'
+16:28:41 INFO  : Disconnected from the channel tcfchan#11.
+16:28:42 INFO  : Connected to target on host '127.0.0.1' and port '3121'.
+16:28:42 INFO  : Jtag cable 'Digilent JTAG-SMT2 210251A1B7E2' is selected.
+16:28:42 INFO  : 'jtag frequency' command is executed.
+16:28:42 INFO  : Context for 'APU' is selected.
+16:28:42 INFO  : System reset is completed.
+16:28:45 INFO  : 'after 3000' command is executed.
+16:28:45 INFO  : 'targets -set -filter {jtag_cable_name =~ "Digilent JTAG-SMT2 210251A1B7E2" && level==0 && jtag_device_ctx=="jsn-JTAG-SMT2-210251A1B7E2-23731093-0"}' command is executed.
+16:28:53 INFO  : Device configured successfully with "F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/_ide/bitstream/design_1_wrapper.bit"
+16:28:53 INFO  : Context for 'APU' is selected.
+16:28:53 INFO  : Hardware design and registers information is loaded from 'F:/study_vivado_ps/zc706_eth/vitis/zc706/export/zc706/hw/design_1_wrapper.xsa'.
+16:28:53 INFO  : 'configparams force-mem-access 1' command is executed.
+16:28:53 INFO  : Context for 'APU' is selected.
+16:28:53 INFO  : Sourcing of 'F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/_ide/psinit/ps7_init.tcl' is done.
+16:28:53 INFO  : 'ps7_init' command is executed.
+16:28:53 INFO  : 'ps7_post_config' command is executed.
+16:28:53 INFO  : Context for processor 'ps7_cortexa9_0' is selected.
+16:28:54 INFO  : The application 'F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/Debug/zc706_eth_test.elf' is downloaded to processor 'ps7_cortexa9_0'.
+16:28:54 INFO  : 'configparams force-mem-access 0' command is executed.
+16:28:54 INFO  : ----------------XSDB Script----------------
+connect -url tcp:127.0.0.1:3121
+targets -set -nocase -filter {name =~"APU*"}
+rst -system
+after 3000
+targets -set -filter {jtag_cable_name =~ "Digilent JTAG-SMT2 210251A1B7E2" && level==0 && jtag_device_ctx=="jsn-JTAG-SMT2-210251A1B7E2-23731093-0"}
+fpga -file F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/_ide/bitstream/design_1_wrapper.bit
+targets -set -nocase -filter {name =~"APU*"}
+loadhw -hw F:/study_vivado_ps/zc706_eth/vitis/zc706/export/zc706/hw/design_1_wrapper.xsa -mem-ranges [list {0x40000000 0xbfffffff}] -regs
+configparams force-mem-access 1
+targets -set -nocase -filter {name =~"APU*"}
+source F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/_ide/psinit/ps7_init.tcl
+ps7_init
+ps7_post_config
+targets -set -nocase -filter {name =~ "*A9*#0"}
+dow F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/Debug/zc706_eth_test.elf
+configparams force-mem-access 0
+----------------End of Script----------------
+
+16:28:54 INFO  : Context for processor 'ps7_cortexa9_0' is selected.
+16:28:54 INFO  : 'con' command is executed.
+16:28:54 INFO  : ----------------XSDB Script (After Launch)----------------
+targets -set -nocase -filter {name =~ "*A9*#0"}
+con
+----------------End of Script----------------
+
+16:28:54 INFO  : Launch script is exported to file 'F:\study_vivado_ps\zc706_eth\vitis\zc706_eth_test_system\_ide\scripts\systemdebugger_zc706_eth_test_system_standalone.tcl'
+16:32:40 INFO  : Checking for BSP changes to sync application flags for project 'zc706_eth_test'...
+16:32:48 INFO  : Checking for BSP changes to sync application flags for project 'zc706_eth_test'...
+16:33:11 INFO  : Checking for BSP changes to sync application flags for project 'zc706_eth_test'...
+16:35:07 INFO  : Checking for BSP changes to sync application flags for project 'zc706_eth_test'...
+16:35:15 INFO  : Disconnected from the channel tcfchan#12.
+16:35:15 INFO  : Connected to target on host '127.0.0.1' and port '3121'.
+16:35:15 INFO  : Jtag cable 'Digilent JTAG-SMT2 210251A1B7E2' is selected.
+16:35:15 INFO  : 'jtag frequency' command is executed.
+16:35:15 INFO  : Context for 'APU' is selected.
+16:35:16 INFO  : System reset is completed.
+16:35:19 INFO  : 'after 3000' command is executed.
+16:35:19 INFO  : 'targets -set -filter {jtag_cable_name =~ "Digilent JTAG-SMT2 210251A1B7E2" && level==0 && jtag_device_ctx=="jsn-JTAG-SMT2-210251A1B7E2-23731093-0"}' command is executed.
+16:35:26 INFO  : Device configured successfully with "F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/_ide/bitstream/design_1_wrapper.bit"
+16:35:26 INFO  : Context for 'APU' is selected.
+16:35:26 INFO  : Hardware design and registers information is loaded from 'F:/study_vivado_ps/zc706_eth/vitis/zc706/export/zc706/hw/design_1_wrapper.xsa'.
+16:35:26 INFO  : 'configparams force-mem-access 1' command is executed.
+16:35:26 INFO  : Context for 'APU' is selected.
+16:35:26 INFO  : Sourcing of 'F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/_ide/psinit/ps7_init.tcl' is done.
+16:35:27 INFO  : 'ps7_init' command is executed.
+16:35:27 INFO  : 'ps7_post_config' command is executed.
+16:35:27 INFO  : Context for processor 'ps7_cortexa9_0' is selected.
+16:35:28 INFO  : The application 'F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/Debug/zc706_eth_test.elf' is downloaded to processor 'ps7_cortexa9_0'.
+16:35:28 INFO  : 'configparams force-mem-access 0' command is executed.
+16:35:28 INFO  : ----------------XSDB Script----------------
+connect -url tcp:127.0.0.1:3121
+targets -set -nocase -filter {name =~"APU*"}
+rst -system
+after 3000
+targets -set -filter {jtag_cable_name =~ "Digilent JTAG-SMT2 210251A1B7E2" && level==0 && jtag_device_ctx=="jsn-JTAG-SMT2-210251A1B7E2-23731093-0"}
+fpga -file F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/_ide/bitstream/design_1_wrapper.bit
+targets -set -nocase -filter {name =~"APU*"}
+loadhw -hw F:/study_vivado_ps/zc706_eth/vitis/zc706/export/zc706/hw/design_1_wrapper.xsa -mem-ranges [list {0x40000000 0xbfffffff}] -regs
+configparams force-mem-access 1
+targets -set -nocase -filter {name =~"APU*"}
+source F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/_ide/psinit/ps7_init.tcl
+ps7_init
+ps7_post_config
+targets -set -nocase -filter {name =~ "*A9*#0"}
+dow F:/study_vivado_ps/zc706_eth/vitis/zc706_eth_test/Debug/zc706_eth_test.elf
+configparams force-mem-access 0
+----------------End of Script----------------
+
+16:35:28 INFO  : Context for processor 'ps7_cortexa9_0' is selected.
+16:35:28 INFO  : 'con' command is executed.
+16:35:28 INFO  : ----------------XSDB Script (After Launch)----------------
+targets -set -nocase -filter {name =~ "*A9*#0"}
+con
+----------------End of Script----------------
+
+16:35:28 INFO  : Launch script is exported to file 'F:\study_vivado_ps\zc706_eth\vitis\zc706_eth_test_system\_ide\scripts\systemdebugger_zc706_eth_test_system_standalone.tcl'

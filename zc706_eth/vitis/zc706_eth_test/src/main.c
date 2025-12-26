@@ -25,7 +25,12 @@
  * OF SUCH DAMAGE.
  *
  */
+/****************************user add******************/
 #include "sys_core.h"
+#include "lwip/sockets.h"
+#include "lwip/err.h"
+
+/**********************************************************/
 #include <stdio.h>
 #include "xparameters.h"
 #include "netif/xadapter.h"
@@ -36,6 +41,19 @@
 /* 把这两行加在 main.c 最上面的 include 下面 */
 extern void Task_LED_Logic(void *pvParameters);
 extern void Task_UART_Cmd(void *pvParameters);
+// --- 全局网络变量 ---
+int g_udp_sock = -1;                 // Socket 句柄
+struct sockaddr_in g_pc_addr;        // 电脑的 IP 地址
+int g_pc_connected = 0;              // 标记是否收到过电脑的指令
+
+// --- 发送函数：供外部调用 ---
+void UDP_Send_Log(char* msg) {
+    if (g_udp_sock >= 0 && g_pc_connected) {
+        lwip_sendto(g_udp_sock, msg, strlen(msg), 0,
+                   (struct sockaddr *)&g_pc_addr, sizeof(g_pc_addr));
+    }
+}
+/*********************************************/
 #if LWIP_IPV6==1
 #include "lwip/ip.h"
 #else
@@ -103,7 +121,7 @@ print_ip_settings(ip_addr_t *ip, ip_addr_t *mask, ip_addr_t *gw)
 
 #endif
 #define PHY_RESET_PIN  47  // ZC706 专用复位脚
-
+/**************************************************/
 void Reset_Phy_MIO47(void) {
 
     XGpioPs_Config *ConfigPtr;
@@ -123,6 +141,7 @@ void Reset_Phy_MIO47(void) {
 
     xil_printf(">> PHY Reset Done.\r\n");
 }
+/****************************************************/
 int main()
 {
 	sys_thread_new("main_thrd", (void(*)(void*))main_thread, 0,
@@ -132,7 +151,77 @@ int main()
 	while(1);
 	return 0;
 }
+/* ============================================================
+ * UDP 指令接收任务
+ * 监听端口: 5001
+ * 功能: 接收电脑发来的指令字符，切换游戏模式
+ * ============================================================ */
+void udp_cmd_thread(void *p)
+{
+    int sock;
+    struct sockaddr_in server_addr, client_addr;
+    int addr_len = sizeof(client_addr);
+    char recv_buf[100];
+    int n;
 
+    xil_printf(">> [UDP] Starting UDP Listener on Port 5001...\r\n");
+
+    if ((sock = lwip_socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+        xil_printf(">> [UDP] Error creating socket!\r\n");
+        vTaskDelete(NULL);
+        return;
+    }
+
+    // 【关键】赋值给全局变量，让 Send 函数也能用
+    g_udp_sock = sock;
+
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(5001);
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+
+    if (lwip_bind(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+        xil_printf(">> [UDP] Error binding socket!\r\n");
+        close(sock);
+        vTaskDelete(NULL);
+        return;
+    }
+
+    xil_printf(">> [UDP] Listening...\r\n");
+
+    while (1) {
+        n = lwip_recvfrom(sock, recv_buf, sizeof(recv_buf) - 1, 0,
+                          (struct sockaddr *)&client_addr, (socklen_t *)&addr_len);
+
+        if (n > 0) {
+            // 【关键】一旦收到电脑指令，就记下电脑的 IP 地址
+            memcpy(&g_pc_addr, &client_addr, sizeof(client_addr));
+            g_pc_connected = 1; // 标记已连接
+
+            recv_buf[n] = 0;
+            char cmd = recv_buf[0];
+            xil_printf(">> [UDP] Recv: %c\r\n", cmd);
+
+            // 切换模式逻辑
+            if (cmd >= '0' && cmd <= '6') {
+                switch(cmd) {
+                    case '1': g_CurrentMode = MODE_WATERFALL;   break;
+                    case '2': g_CurrentMode = MODE_SWITCH_CTRL; break;
+                    case '3': g_CurrentMode = MODE_BINARY_CNT;  break;
+                    case '4': g_CurrentMode = MODE_DICE_GAME;   break;
+                    case '5': g_CurrentMode = MODE_REFLEX_GAME; break;
+                    case '6': g_CurrentMode = MODE_SOS_SIGNAL;  break;
+                    case '0': g_CurrentMode = MODE_OFF;         break;
+                }
+
+                // 立即回复电脑
+                char *reply = "OK: Mode Switched";
+                lwip_sendto(sock, reply, strlen(reply), 0, (struct sockaddr *)&client_addr, addr_len);
+            }
+        }
+    }
+}
+/******************************************************************************/
 void network_thread(void *p)
 {
     struct netif *netif;
@@ -243,7 +332,10 @@ int main_thread()
 #if LWIP_DHCP==1
 	int mscnt = 0;
 #endif
+
+/**************************/
 	Reset_Phy_MIO47();
+/***************************/
 #ifdef XPS_BOARD_ZCU102
 	IicPhyReset();
 #endif
@@ -255,6 +347,7 @@ int main_thread()
     sys_thread_new("NW_THRD", network_thread, NULL,
 		THREAD_STACKSIZE,
             DEFAULT_THREAD_PRIO);
+    sys_thread_new("UDP_THRD", udp_cmd_thread, NULL, 1024, DEFAULT_THREAD_PRIO);
     // 4. 【新增】启动你的 LED 游戏任务！(放在这里最合适)
         // ----------------------------------------------------------------
         xil_printf(">> Starting LED Game System...\r\n");

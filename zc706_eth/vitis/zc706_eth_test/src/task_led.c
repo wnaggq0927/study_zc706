@@ -4,7 +4,8 @@
 #include "sleep.h"
 #include "stdlib.h"
 #include "xil_printf.h"
-
+#include <stdio.h>
+extern void UDP_Send_Log(char* msg);
 // 辅助函数：设置 4 个灯 (L1, L2, L3, L4)
 static void Set_Leds(int l1, int l2, int l3, int l4) {
     XGpioPs_WritePin(&Gpio, LED1_PIN, l1);
@@ -36,6 +37,7 @@ void Task_LED_Logic(void *pvParameters)
     int last_counter = -1; // 用于去重打印
     int last_sw_state = 0;
     int game_state = 0;
+    char udp_buf[64]; // 【新增】用于存放要发送的字符串
     TickType_t start_time = 0;
     int leds[4] = {LED1_PIN, LED2_PIN, LED3_PIN, LED4_PIN};
         for(int i=0; i<4; i++) {
@@ -98,6 +100,10 @@ void Task_LED_Logic(void *pvParameters)
                         counter,
                         (counter>>3)&1, (counter>>2)&1, (counter>>1)&1, (counter>>0)&1
                     );
+                    sprintf(udp_buf, "Binary: %d [ %d %d %d %d ]",
+                                                counter,
+                                                (counter>>3)&1, (counter>>2)&1, (counter>>1)&1, (counter>>0)&1);
+                                        UDP_Send_Log(udp_buf);
                     last_counter = counter;
                 }
 
@@ -124,6 +130,8 @@ void Task_LED_Logic(void *pvParameters)
 
                     // 【关键修改】立刻打印结果
                     xil_printf(">> Dice Result: %d\r\n", dice_value);
+                    sprintf(udp_buf, "Dice Result: %d", dice_value);
+                                        UDP_Send_Log(udp_buf);
                 }
 
                 vTaskDelay(pdMS_TO_TICKS(100));

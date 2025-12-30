@@ -29,7 +29,7 @@
 #include "sys_core.h"
 #include "lwip/sockets.h"
 #include "lwip/err.h"
-
+#include "xadcps.h" // XADC 驱动
 /**********************************************************/
 #include <stdio.h>
 #include "xparameters.h"
@@ -102,8 +102,72 @@ void print_ip6(char *msg, ip_addr_t *ip)
 }
 
 #else
-void
-print_ip(char *msg, ip_addr_t *ip)
+// ================= XADC 监控功能 =================
+XAdcPs XAdcInst; // XADC 驱动实例
+
+// 初始化 XADC
+int Init_XADC(void) {
+    XAdcPs_Config *ConfigPtr;
+    ConfigPtr = XAdcPs_LookupConfig(XPAR_XADCPS_0_DEVICE_ID);
+    if (ConfigPtr == NULL) return XST_FAILURE;
+
+    XAdcPs_CfgInitialize(&XAdcInst, ConfigPtr, ConfigPtr->BaseAddress);
+
+    // 设置为“安全模式” (默认序列)
+    XAdcPs_SetSequencerMode(&XAdcInst, XADCPS_SEQ_MODE_SAFE);
+    return XST_SUCCESS;
+}
+
+// 读取温度并转换为字符串
+// 格式: "Temp: 45.2 C"
+void Read_Chip_Temp(char *buffer) {
+    u16 raw_data = XAdcPs_GetAdcData(&XAdcInst, XADCPS_CH_TEMP);
+    // 官方转换公式: Temp = (Raw * 503.975 / 65536) - 273.15
+    float temp = ((float)raw_data * 503.975f / 65536.0f) - 273.15f;
+
+    // 简单的 float 转 string (因为 xil_printf 对 %f 支持不好)
+    int temp_int = (int)temp;
+    int temp_frac = (int)((temp - temp_int) * 10); // 取一位小数
+    sprintf(buffer, "Temp: %d.%d C", temp_int, temp_frac);
+}
+
+// 读取 VCCINT 电压并转换为字符串
+// 格式: "Vcc: 0.99 V"
+void Read_Chip_Vcc(char *buffer) {
+    u16 raw_data = XAdcPs_GetAdcData(&XAdcInst, XADCPS_CH_VCCINT);
+    // 官方转换公式: Volts = Raw * 3.0 / 65536
+    float vcc = (float)raw_data * 3.0f / 65536.0f;
+
+    int vcc_int = (int)vcc;
+    int vcc_frac = (int)((vcc - vcc_int) * 100); // 取两位小数
+    sprintf(buffer, "Vcc: %d.%02d V", vcc_int, vcc_frac);
+}
+// ================= [新增] 系统监控任务 =================
+void Task_System_Monitor(void *pvParameters) {
+    char temp_str[32];
+    char vcc_str[32];
+    char udp_msg[64];
+
+    // 稍微延时，等 LwIP 网络建立起来
+    vTaskDelay(pdMS_TO_TICKS(5000));
+
+    for(;;) {
+        // 1. 读取数据
+        Read_Chip_Temp(temp_str);
+        Read_Chip_Vcc(vcc_str);
+
+        // 2. 组合 UDP 包: "[DATA] Temp:45.1C, Vcc:0.99V"
+        // 注意：[DATA] 是给上位机识别用的标签
+        sprintf(udp_msg, "[DATA] %s, %s", temp_str, vcc_str);
+
+        // 3. 发送
+        UDP_Send_Log(udp_msg);
+
+        // 4. 每 2 秒刷新一次
+        vTaskDelay(pdMS_TO_TICKS(2000));
+    }
+}
+void print_ip(char *msg, ip_addr_t *ip)
 {
 	xil_printf(msg);
 	xil_printf("%d.%d.%d.%d\n\r", ip4_addr1(ip), ip4_addr2(ip),
@@ -335,6 +399,9 @@ int main_thread()
 
 /**************************/
 	Reset_Phy_MIO47();
+	if(Init_XADC() == XST_SUCCESS) {
+	        xil_printf(">> [Init] XADC Sensor Initialized.\r\n");
+	    }
 /***************************/
 #ifdef XPS_BOARD_ZCU102
 	IicPhyReset();
@@ -348,13 +415,14 @@ int main_thread()
 		THREAD_STACKSIZE,
             DEFAULT_THREAD_PRIO);
     sys_thread_new("UDP_THRD", udp_cmd_thread, NULL, 1024, DEFAULT_THREAD_PRIO);
-    // 4. 【新增】启动你的 LED 游戏任务！(放在这里最合适)
+
         // ----------------------------------------------------------------
         xil_printf(">> Starting LED Game System...\r\n");
-        // 优先级建议设为 tskIDLE_PRIORITY + 1 或更高
+
         xTaskCreate(Task_LED_Logic, "LED_Core", 1024, NULL, tskIDLE_PRIORITY + 1, NULL);
         xTaskCreate(Task_UART_Cmd,  "CMD_Port", 1024, NULL, tskIDLE_PRIORITY + 1, NULL);
         // ----------------------------------------------------------------
+        xTaskCreate(Task_System_Monitor, "SysMon", 1024, NULL, tskIDLE_PRIORITY + 1, NULL);
 #if LWIP_IPV6==0
 #if LWIP_DHCP==1
     while (1) {

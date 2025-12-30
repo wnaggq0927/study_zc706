@@ -1,10 +1,32 @@
-17:18:05 **** Incremental Build of configuration Debug for project zc706_eth_test ****
+16:17:39 **** Incremental Build of configuration Debug for project zc706_eth_test ****
 make all 
 E:/xilinx/Vitis/2021.2/gnuwin/bin/make --no-print-directory pre-build
 a9-linaro-pre-build-step
 ' '
 E:/xilinx/Vitis/2021.2/gnuwin/bin/make --no-print-directory main-build
-make[1]: Nothing to be done for 'main-build'.
+'Building file: ../src/main.c'
+'Invoking: ARM v7 gcc compiler'
+arm-none-eabi-gcc -Wall -O0 -g3 -c -fmessage-length=0 -MT"src/main.o" -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard -IF:/study_vivado_ps/zc706_eth/vitis/zc706/export/zc706/sw/zc706/freertos_domain/bspinclude/include -MMD -MP -MF"src/main.d" -MT"src/main.o" -o "src/main.o" "../src/main.c"
+../src/main.c: In function 'Task_System_Monitor':
+../src/main.c:161:38: warning: '%s' directive writing up to 31 bytes into a region of size between 24 and 55 [-Wformat-overflow=]
+  161 |         sprintf(udp_msg, "[DATA] %s, %s", temp_str, vcc_str);
+      |                                      ^~             ~~~~~~~
+../src/main.c:161:9: note: 'sprintf' output between 10 and 72 bytes into a destination of size 64
+  161 |         sprintf(udp_msg, "[DATA] %s, %s", temp_str, vcc_str);
+      |         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+'Finished building: ../src/main.c'
+' '
+'Building target: zc706_eth_test.elf'
+'Invoking: ARM v7 gcc linker'
+arm-none-eabi-gcc -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard -Wl,-build-id=none -specs=Xilinx.spec -Wl,-T -Wl,../src/lscript.ld -LF:/study_vivado_ps/zc706_eth/vitis/zc706/export/zc706/sw/zc706/freertos_domain/bsplib/lib -o "zc706_eth_test.elf"  ./src/echo.o ./src/iic_phyreset.o ./src/main.o ./src/task_cmd.o ./src/task_led.o   -Wl,--start-group,-lxil,-lfreertos,-lgcc,-lc,--end-group -Wl,--start-group,-lxil,-llwip4,-lgcc,-lc,--end-group
+'Finished building target: zc706_eth_test.elf'
+' '
+'Invoking: ARM v7 Print Size'
+arm-none-eabi-size zc706_eth_test.elf  |tee "zc706_eth_test.elf.size"
+   text	   data	    bss	    dec	    hex	filename
+ 192571	   3428	3266624	3462623	 34d5df	zc706_eth_test.elf
+'Finished building: zc706_eth_test.elf.size'
+' '
 
-17:18:05 Build Finished (took 570ms)
+16:17:40 Build Finished (took 1s.534ms)
 

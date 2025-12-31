@@ -1,0 +1,68 @@
+Nothing to build in platform 'design_1_wrapper'
+
+18:05:32 **** Incremental Build of configuration Debug for project dma_loop ****
+make all 
+E:/xilinx/Vitis/2021.2/gnuwin/bin/make --no-print-directory pre-build
+a9-linaro-pre-build-step
+' '
+E:/xilinx/Vitis/2021.2/gnuwin/bin/make --no-print-directory main-build
+'Building file: ../src/echo.c'
+'Invoking: ARM v7 gcc compiler'
+arm-none-eabi-gcc -Wall -O0 -g3 -c -fmessage-length=0 -MT"src/echo.o" -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard -IF:/study_vivado_ps/zc706_eth_DMA_Loopback/vitis/design_1_wrapper/export/design_1_wrapper/sw/design_1_wrapper/freertos10_xilinx_ps7_cortexa9_0/bspinclude/include -MMD -MP -MF"src/echo.d" -MT"src/echo.o" -o "src/echo.o" "../src/echo.c"
+'Finished building: ../src/echo.c'
+' '
+'Building file: ../src/iic_phyreset.c'
+'Invoking: ARM v7 gcc compiler'
+arm-none-eabi-gcc -Wall -O0 -g3 -c -fmessage-length=0 -MT"src/iic_phyreset.o" -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard -IF:/study_vivado_ps/zc706_eth_DMA_Loopback/vitis/design_1_wrapper/export/design_1_wrapper/sw/design_1_wrapper/freertos10_xilinx_ps7_cortexa9_0/bspinclude/include -MMD -MP -MF"src/iic_phyreset.d" -MT"src/iic_phyreset.o" -o "src/iic_phyreset.o" "../src/iic_phyreset.c"
+'Finished building: ../src/iic_phyreset.c'
+' '
+'Building file: ../src/main.c'
+'Invoking: ARM v7 gcc compiler'
+arm-none-eabi-gcc -Wall -O0 -g3 -c -fmessage-length=0 -MT"src/main.o" -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard -IF:/study_vivado_ps/zc706_eth_DMA_Loopback/vitis/design_1_wrapper/export/design_1_wrapper/sw/design_1_wrapper/freertos10_xilinx_ps7_cortexa9_0/bspinclude/include -MMD -MP -MF"src/main.d" -MT"src/main.o" -o "src/main.o" "../src/main.c"
+'Finished building: ../src/main.c'
+' '
+'Building file: ../src/net_config.c'
+'Invoking: ARM v7 gcc compiler'
+arm-none-eabi-gcc -Wall -O0 -g3 -c -fmessage-length=0 -MT"src/net_config.o" -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard -IF:/study_vivado_ps/zc706_eth_DMA_Loopback/vitis/design_1_wrapper/export/design_1_wrapper/sw/design_1_wrapper/freertos10_xilinx_ps7_cortexa9_0/bspinclude/include -MMD -MP -MF"src/net_config.d" -MT"src/net_config.o" -o "src/net_config.o" "../src/net_config.c"
+'Finished building: ../src/net_config.c'
+' '
+'Building file: ../src/sys_core.c'
+'Invoking: ARM v7 gcc compiler'
+arm-none-eabi-gcc -Wall -O0 -g3 -c -fmessage-length=0 -MT"src/sys_core.o" -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard -IF:/study_vivado_ps/zc706_eth_DMA_Loopback/vitis/design_1_wrapper/export/design_1_wrapper/sw/design_1_wrapper/freertos10_xilinx_ps7_cortexa9_0/bspinclude/include -MMD -MP -MF"src/sys_core.d" -MT"src/sys_core.o" -o "src/sys_core.o" "../src/sys_core.c"
+'Finished building: ../src/sys_core.c'
+' '
+'Building file: ../src/task_cmd.c'
+'Invoking: ARM v7 gcc compiler'
+arm-none-eabi-gcc -Wall -O0 -g3 -c -fmessage-length=0 -MT"src/task_cmd.o" -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard -IF:/study_vivado_ps/zc706_eth_DMA_Loopback/vitis/design_1_wrapper/export/design_1_wrapper/sw/design_1_wrapper/freertos10_xilinx_ps7_cortexa9_0/bspinclude/include -MMD -MP -MF"src/task_cmd.d" -MT"src/task_cmd.o" -o "src/task_cmd.o" "../src/task_cmd.c"
+'Finished building: ../src/task_cmd.c'
+' '
+'Building file: ../src/task_led.c'
+'Invoking: ARM v7 gcc compiler'
+arm-none-eabi-gcc -Wall -O0 -g3 -c -fmessage-length=0 -MT"src/task_led.o" -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard -IF:/study_vivado_ps/zc706_eth_DMA_Loopback/vitis/design_1_wrapper/export/design_1_wrapper/sw/design_1_wrapper/freertos10_xilinx_ps7_cortexa9_0/bspinclude/include -MMD -MP -MF"src/task_led.d" -MT"src/task_led.o" -o "src/task_led.o" "../src/task_led.c"
+../src/task_led.c: In function 'Task_System_Monitor':
+../src/task_led.c:193:42: warning: '%s' directive writing up to 31 bytes into a region of size between 24 and 55 [-Wformat-overflow=]
+  193 |             sprintf(udp_msg, "[DATA] %s, %s", temp_str, vcc_str);
+      |                                          ^~             ~~~~~~~
+../src/task_led.c:193:13: note: 'sprintf' output between 10 and 72 bytes into a destination of size 64
+  193 |             sprintf(udp_msg, "[DATA] %s, %s", temp_str, vcc_str);
+      |             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+'Finished building: ../src/task_led.c'
+' '
+'Building target: dma_loop.elf'
+'Invoking: ARM v7 gcc linker'
+arm-none-eabi-gcc -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard -Wl,-build-id=none -specs=Xilinx.spec -Wl,-T -Wl,../src/lscript.ld -LF:/study_vivado_ps/zc706_eth_DMA_Loopback/vitis/design_1_wrapper/export/design_1_wrapper/sw/design_1_wrapper/freertos10_xilinx_ps7_cortexa9_0/bsplib/lib -o "dma_loop.elf"  ./src/echo.o ./src/iic_phyreset.o ./src/main.o ./src/net_config.o ./src/sys_core.o ./src/task_cmd.o ./src/task_led.o   -lm -Wl,--start-group,-lxil,-lfreertos,-lgcc,-lc,--end-group -Wl,--start-group,-lxil,-llwip4,-lgcc,-lc,--end-group -Wl,--start-group,-lxilffs,-lxil,-lgcc,-lc,--end-group
+'Finished building target: dma_loop.elf'
+' '
+'Invoking: ARM v7 Print Size'
+arm-none-eabi-size dma_loop.elf  |tee "dma_loop.elf.size"
+   text	   data	    bss	    dec	    hex	filename
+ 198155	   3500	3201088	3402743	 33ebf7	dma_loop.elf
+'Finished building: dma_loop.elf.size'
+' '
+18:05:43 **** Incremental Build of configuration Debug for project dma_loop_system ****
+make all 
+Generating bif file for the system project
+generate_system_bif.bat 58969 F:/study_vivado_ps/zc706_eth_DMA_Loopback/vitis/design_1_wrapper/export/design_1_wrapper/design_1_wrapper.xpfm freertos10_xilinx_ps7_cortexa9_0 F:/study_vivado_ps/zc706_eth_DMA_Loopback/vitis/dma_loop_system/Debug/system.bif
+sdcard_gen --xpfm F:/study_vivado_ps/zc706_eth_DMA_Loopback/vitis/design_1_wrapper/export/design_1_wrapper/design_1_wrapper.xpfm --sys_config design_1_wrapper --bif F:/study_vivado_ps/zc706_eth_DMA_Loopback/vitis/dma_loop_system/Debug/system.bif --bitstream F:/study_vivado_ps/zc706_eth_DMA_Loopback/vitis/dma_loop/_ide/bitstream/design_1_wrapper.bit --elf F:/study_vivado_ps/zc706_eth_DMA_Loopback/vitis/dma_loop/Debug/dma_loop.elf,ps7_cortexa9_0
+creating BOOT.BIN using F:/study_vivado_ps/zc706_eth_DMA_Loopback/vitis/dma_loop/_ide/bitstream/design_1_wrapper.bit
+Running E:/xilinx/Vitis/2021.2/bin/bootgen  -image F:/study_vivado_ps/zc706_eth_DMA_Loopback/vitis/dma_loop_system/Debug/sd_card_temp/boot.bif -w -o i BOOT.BIN

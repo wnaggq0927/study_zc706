@@ -1,0 +1,51 @@
+#ifndef SYS_CORE_H
+#define SYS_CORE_H
+
+#include "xil_types.h"
+#include "xgpiops.h"
+#include "lwip/sockets.h"
+#include "xadcps.h"
+// 【新增】DMA 相关头文件
+#include "xaxidma.h"
+#include "xil_cache.h"
+
+// --- 硬件引脚定义 ---
+#define LED1_PIN        54
+#define LED2_PIN        55
+#define LED3_PIN        56
+#define LED4_PIN        57
+#define SW_BASE_PIN     58
+
+// --- DMA 配置 ---
+#define DMA_DEV_ID      XPAR_AXIDMA_0_DEVICE_ID
+#define RX_BUFFER_BASE  0x10000000
+#define MAX_PKT_LEN     (1024 * 4) // 采集深度
+
+// --- 运行模式枚举 ---
+typedef enum {
+    MODE_WATERFALL = 0,
+    MODE_SWITCH_CTRL,
+    MODE_BINARY_CNT,
+    MODE_DICE_GAME,
+    MODE_REFLEX_GAME,
+    MODE_SOS_SIGNAL,
+    MODE_OFF,
+    MODE_WAVE_OSCILLO     // 【新增】波形示波器模式
+} LedMode_t;
+
+extern volatile LedMode_t g_CurrentMode;
+extern XGpioPs Gpio;
+
+// --- 网络全局变量 ---
+extern int g_udp_sock;
+extern struct sockaddr_in g_pc_addr;
+extern int g_pc_connected;
+
+// --- 函数声明 ---
+void UDP_Send_Log(char* msg);
+void Task_LED_Logic(void *pvParameters);
+void Task_System_Monitor(void *pvParameters);
+void Task_DMA_Wave(void *pvParameters); // 【新增】DMA 任务
+void udp_cmd_thread(void *p);
+
+#endif

@@ -1,0 +1,44 @@
+/* main.c - 程序入口 */
+#include "sys_core.h"
+#include "FreeRTOS.h"
+#include "task.h"
+#include "xil_printf.h"
+
+// LwIP 初始化声明
+void lwip_init();
+void network_thread(void *p); // 这是你原来的 LwIP 线程函数
+
+// 主线程
+void main_thread(void *p) {
+    // 1. 初始化所有硬件 (LED, XADC, DMA)
+    // 这一步必须在最前面，否则后面任务用的时候硬件还没好
+    Init_All_Hardware();
+
+    // 2. 初始化网络栈
+    lwip_init();
+    sys_thread_new("NW_THRD", network_thread, NULL, 1024, DEFAULT_THREAD_PRIO);
+
+    // 3. 启动应用任务
+    xil_printf(">> System Started. Launching Tasks...\r\n");
+
+    // UDP 监听
+    sys_thread_new("UDP_THRD", udp_cmd_thread, NULL, 1024, DEFAULT_THREAD_PRIO);
+
+    // 游戏与控制
+    xTaskCreate(Task_LED_Logic, "LED", 1024, NULL, tskIDLE_PRIORITY + 1, NULL);
+    xTaskCreate(Task_System_Monitor, "SysMon", 1024, NULL, tskIDLE_PRIORITY + 1, NULL);
+    xTaskCreate(Task_DMA_Wave, "DMA", 2048, NULL, tskIDLE_PRIORITY + 1, NULL); // DMA 任务栈给大一点
+
+    vTaskDelete(NULL);
+}
+
+int main() {
+    // 启动主线程
+    sys_thread_new("main_thrd", (void(*)(void*))main_thread, 0, 4096, DEFAULT_THREAD_PRIO);
+
+    // 启动 FreeRTOS 调度器
+    vTaskStartScheduler();
+
+    while(1);
+    return 0;
+}

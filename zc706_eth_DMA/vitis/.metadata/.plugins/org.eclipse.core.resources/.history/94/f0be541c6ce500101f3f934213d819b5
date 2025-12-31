@@ -1,0 +1,60 @@
+/* main.c - 最终极简版 */
+
+// 引入头文件，这样 main 才知道其他文件里有什么函数
+#include "sys_core.h"
+#include "FreeRTOS.h"
+#include "task.h"
+#include "xil_printf.h"
+#include "lwip/sys.h"
+// 声明一下 lwip_init (因为它在库里，sys_core.h 里没包含)
+void lwip_init();
+// 声明一下 network_thread (它在 net_config.c 里)
+void network_thread(void *p);
+
+// 主线程：负责按顺序启动所有模块
+void main_thread(void *p) {
+    xil_printf("\r\n--- System Booting ---\r\n");
+
+    // 1. 初始化所有硬件 (LED, XADC, DMA)
+    // 这个函数我们在 sys_core.c 里写好了
+    Init_All_Hardware();
+
+    // 2. 初始化网络协议栈
+    lwip_init();
+
+    // 3. 启动网络配置线程 (在 net_config.c 里)
+    // 它负责设置 IP 地址 (192.168.0.20)
+    sys_thread_new("NW_THRD", network_thread, NULL, 1024, DEFAULT_THREAD_PRIO);
+
+    // 4. 启动 UDP 监听线程 (在 game_tasks.c 里)
+    // 它负责接收电脑指令
+    sys_thread_new("UDP_THRD", udp_cmd_thread, NULL, 1024, DEFAULT_THREAD_PRIO);
+
+    xil_printf(">> System Started. Launching Tasks...\r\n");
+
+    // 5. 启动应用任务 (都在 game_tasks.c 里)
+    // LED 逻辑
+    xTaskCreate(Task_LED_Logic, "LED", 1024, NULL, tskIDLE_PRIORITY + 1, NULL);
+    // 系统监控 (温度/电压)
+    xTaskCreate(Task_System_Monitor, "SysMon", 1024, NULL, tskIDLE_PRIORITY + 1, NULL);
+    // DMA 示波器
+    xTaskCreate(Task_DMA_Wave, "DMA", 2048, NULL, tskIDLE_PRIORITY + 1, NULL);
+
+    // 任务完成，删除自己
+    vTaskDelete(NULL);
+}
+
+int main() {
+    // 程序的物理入口
+    xil_printf("--- ZYNQ-7000 Start ---\r\n");
+
+    // 创建第一个 FreeRTOS 线程
+    sys_thread_new("main_thrd", (void(*)(void*))main_thread, 0, 4096, DEFAULT_THREAD_PRIO);
+
+    // 启动调度器，接管 CPU
+    vTaskStartScheduler();
+
+    // 程序永远不会运行到这里
+    while(1);
+    return 0;
+}

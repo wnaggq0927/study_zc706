@@ -1,0 +1,227 @@
+#include "sys_core.h"
+#include "FreeRTOS.h"
+#include "task.h"
+#include "xil_printf.h"
+#include "sleep.h"
+#include "xadcps.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h> // 需要用到 strcat
+
+// --- 全局变量 ---
+volatile LedMode_t g_CurrentMode = MODE_WATERFALL;
+XGpioPs Gpio;
+XAdcPs XAdcInst;
+XAxiDma AxiDma; // DMA 实例
+
+// 网络相关
+int g_udp_sock = -1;
+struct sockaddr_in g_pc_addr;
+int g_pc_connected = 0;
+
+// ================= UDP 发送函数 =================
+void UDP_Send_Log(char* msg) {
+    if (g_udp_sock >= 0 && g_pc_connected) {
+        lwip_sendto(g_udp_sock, msg, strlen(msg), 0,
+                   (struct sockaddr *)&g_pc_addr, sizeof(g_pc_addr));
+    }
+}
+
+// ================= XADC 部分 (保持不变) =================
+int Init_XADC(void) {
+    XAdcPs_Config *ConfigPtr;
+    ConfigPtr = XAdcPs_LookupConfig(XPAR_XADCPS_0_DEVICE_ID);
+    if (ConfigPtr == NULL) return XST_FAILURE;
+    XAdcPs_CfgInitialize(&XAdcInst, ConfigPtr, ConfigPtr->BaseAddress);
+    XAdcPs_SetSequencerMode(&XAdcInst, XADCPS_SEQ_MODE_SAFE);
+    return XST_SUCCESS;
+}
+void Read_Chip_Temp(char *buffer) {
+    u16 raw = XAdcPs_GetAdcData(&XAdcInst, XADCPS_CH_TEMP);
+    float temp = ((float)raw * 503.975f / 65536.0f) - 273.15f;
+    sprintf(buffer, "Temp: %d.%d C", (int)temp, (int)((temp - (int)temp) * 10));
+}
+void Read_Chip_Vcc(char *buffer) {
+    u16 raw = XAdcPs_GetAdcData(&XAdcInst, XADCPS_CH_VCCINT);
+    float vcc = (float)raw * 3.0f / 65536.0f;
+    sprintf(buffer, "Vcc: %d.%02d V", (int)vcc, (int)((vcc - (int)vcc) * 100));
+}
+
+// ================= [新增] DMA 初始化 =================
+int Init_DMA(void) {
+    XAxiDma_Config *Config = XAxiDma_LookupConfig(DMA_DEV_ID);
+    if (!Config) return XST_FAILURE;
+    int Status = XAxiDma_CfgInitialize(&AxiDma, Config);
+    if (Status != XST_SUCCESS) return XST_FAILURE;
+    XAxiDma_IntrDisable(&AxiDma, XAXIDMA_IRQ_ALL_MASK, XAXIDMA_DEVICE_TO_DMA);
+    return XST_SUCCESS;
+}
+
+// ================= [新增] DMA 采集任务 =================
+void Task_DMA_Wave(void *pvParameters) {
+    u32 *RxBufferPtr = (u32 *)RX_BUFFER_BASE;
+    char udp_big_buf[1024]; // 大一点的缓存
+    char temp_buf[16];
+    int Status;
+
+    Init_DMA();
+    vTaskDelay(pdMS_TO_TICKS(5000)); // 等网络建立
+
+    for(;;) {
+        // 只有在示波器模式下才工作
+        if (g_CurrentMode == MODE_WAVE_OSCILLO && g_pc_connected) {
+
+            // 1. 启动 DMA 传输
+            Xil_DCacheInvalidateRange((UINTPTR)RxBufferPtr, MAX_PKT_LEN);
+            Status = XAxiDma_SimpleTransfer(&AxiDma, (UINTPTR)RxBufferPtr,
+                                            MAX_PKT_LEN, XAXIDMA_DEVICE_TO_DMA);
+
+            // 2. 等待传输完成 (简单轮询)
+            if (Status == XST_SUCCESS) {
+                while (XAxiDma_Busy(&AxiDma, XAXIDMA_DEVICE_TO_DMA)) {
+                    vTaskDelay(1); // 释放一点 CPU
+                }
+
+                // 3. Cache Invalidate 确保 CPU 读到最新数据
+                Xil_DCacheInvalidateRange((UINTPTR)RxBufferPtr, MAX_PKT_LEN);
+
+                // 4. 打包数据：只取前 50 个点用于演示
+                // 格式: "[WAVE] 12, -5, 100, ..."
+                strcpy(udp_big_buf, "[WAVE] ");
+
+                for(int i=0; i<50; i++) {
+                    u32 val = RxBufferPtr[i];
+                    int8_t signed_val = (int8_t)(val & 0xFF); // 转换为有符号
+
+                    sprintf(temp_buf, "%d,", signed_val);
+                    strcat(udp_big_buf, temp_buf);
+                }
+
+                // 5. 发送
+                UDP_Send_Log(udp_big_buf);
+            }
+        }
+
+        // 刷新率: 50ms (即 20fps)
+        vTaskDelay(pdMS_TO_TICKS(50));
+    }
+}
+
+// ================= 任务：系统监控 =================
+void Task_System_Monitor(void *pvParameters) {
+    char temp_str[32], vcc_str[32], udp_msg[64];
+    Init_XADC();
+    vTaskDelay(pdMS_TO_TICKS(5000));
+
+    for(;;) {
+        if(g_pc_connected) {
+            Read_Chip_Temp(temp_str);
+            Read_Chip_Vcc(vcc_str);
+            sprintf(udp_msg, "[DATA] %s, %s", temp_str, vcc_str);
+            UDP_Send_Log(udp_msg);
+        }
+        vTaskDelay(pdMS_TO_TICKS(2000));
+    }
+}
+
+// ================= LED 辅助函数 =================
+static void Set_Leds(int l1, int l2, int l3, int l4) {
+    XGpioPs_WritePin(&Gpio, LED1_PIN, l1);
+    XGpioPs_WritePin(&Gpio, LED2_PIN, l2);
+    XGpioPs_WritePin(&Gpio, LED3_PIN, l3);
+    XGpioPs_WritePin(&Gpio, LED4_PIN, l4);
+}
+static void Show_Binary(u8 val) {
+    Set_Leds((val>>3)&1, (val>>2)&1, (val>>1)&1, (val>>0)&1);
+}
+
+// ================= 任务：LED 逻辑 =================
+void Task_LED_Logic(void *pvParameters) {
+    int leds[4] = {LED1_PIN, LED2_PIN, LED3_PIN, LED4_PIN};
+    XGpioPs_Config *ConfigPtr = XGpioPs_LookupConfig(XPAR_PS7_GPIO_0_DEVICE_ID);
+    XGpioPs_CfgInitialize(&Gpio, ConfigPtr, ConfigPtr->BaseAddr);
+
+    for(int i=0; i<4; i++) {
+        XGpioPs_SetDirectionPin(&Gpio, leds[i], 1);
+        XGpioPs_SetOutputEnablePin(&Gpio, leds[i], 1);
+        XGpioPs_WritePin(&Gpio, leds[i], 0);
+        XGpioPs_SetDirectionPin(&Gpio, SW_BASE_PIN + i, 0);
+    }
+
+    int counter = 0;
+    char udp_buf[64];
+
+    for (;;) {
+        switch (g_CurrentMode) {
+            case MODE_WATERFALL:
+                 Set_Leds(1, 0, 0, 0); vTaskDelay(pdMS_TO_TICKS(150));
+                 Set_Leds(0, 1, 0, 0); vTaskDelay(pdMS_TO_TICKS(150));
+                 Set_Leds(0, 0, 1, 0); vTaskDelay(pdMS_TO_TICKS(150));
+                 Set_Leds(0, 0, 0, 1); vTaskDelay(pdMS_TO_TICKS(150));
+                 break;
+
+            case MODE_BINARY_CNT:
+                counter = (counter + 1) % 16;
+                Show_Binary(counter);
+                sprintf(udp_buf, "Binary: %d [ %d %d %d %d ]", counter, (counter>>3)&1, (counter>>2)&1, (counter>>1)&1, (counter>>0)&1);
+                UDP_Send_Log(udp_buf);
+                vTaskDelay(pdMS_TO_TICKS(500));
+                break;
+
+            case MODE_WAVE_OSCILLO: // 示波器模式下，LED 全亮表示正在工作
+                Set_Leds(1, 1, 1, 1);
+                vTaskDelay(pdMS_TO_TICKS(500));
+                break;
+
+            case MODE_OFF:
+                Set_Leds(0,0,0,0); vTaskDelay(pdMS_TO_TICKS(100)); break;
+            default:
+                Set_Leds(0,0,0,0); vTaskDelay(pdMS_TO_TICKS(100)); break;
+        }
+    }
+}
+
+// ================= 任务：UDP 指令接收 =================
+void udp_cmd_thread(void *p) {
+    int sock;
+    struct sockaddr_in server_addr, client_addr;
+    int addr_len = sizeof(client_addr);
+    char recv_buf[100];
+    int n;
+
+    if ((sock = lwip_socket(AF_INET, SOCK_DGRAM, 0)) < 0) return;
+    g_udp_sock = sock;
+
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(5001);
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+
+    if (lwip_bind(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) return;
+
+    while (1) {
+        n = lwip_recvfrom(sock, recv_buf, sizeof(recv_buf) - 1, 0,
+                          (struct sockaddr *)&client_addr, (socklen_t *)&addr_len);
+        if (n > 0) {
+            memcpy(&g_pc_addr, &client_addr, sizeof(client_addr));
+            g_pc_connected = 1;
+
+            recv_buf[n] = 0;
+            char cmd = recv_buf[0];
+
+            // 模式切换
+            if (cmd >= '0' && cmd <= '7') { // 增加到了 7
+                switch(cmd) {
+                    case '1': g_CurrentMode = MODE_WATERFALL;   break;
+                    case '2': g_CurrentMode = MODE_SWITCH_CTRL; break;
+                    case '3': g_CurrentMode = MODE_BINARY_CNT;  break;
+                    case '4': g_CurrentMode = MODE_DICE_GAME;   break;
+                    case '5': g_CurrentMode = MODE_REFLEX_GAME; break;
+                    case '6': g_CurrentMode = MODE_SOS_SIGNAL;  break;
+                    case '7': g_CurrentMode = MODE_WAVE_OSCILLO; break; // 新增模式
+                    case '0': g_CurrentMode = MODE_OFF;         break;
+                }
+            }
+        }
+    }
+}

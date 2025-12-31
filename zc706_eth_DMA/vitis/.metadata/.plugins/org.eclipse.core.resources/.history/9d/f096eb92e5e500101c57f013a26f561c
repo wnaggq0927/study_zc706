@@ -1,0 +1,87 @@
+#include "FreeRTOS.h"
+#include "task.h"
+#include "sys_core.h"
+#include "xil_printf.h"
+#include "xuartps_hw.h"
+
+
+
+// --- 辅助函数：清屏并打印菜单 ---
+// 使用 ANSI 转义序列：\033[2J (清屏) + \033[H (光标归位)
+void Show_Menu(void)
+{
+    // 1. 清屏 (如果你用的串口工具不支持 ANSI，这两行会显示乱码，删掉即可)
+    xil_printf("\033[2J");
+    xil_printf("\033[H");
+
+    // 2. 打印漂亮的菜单头
+    xil_printf("\r\n========================================\r\n");
+    xil_printf("      ZYNQ-7000 ULTIMATE CONTROLLER     \r\n");
+    xil_printf("========================================\r\n");
+
+    // 3. 显示当前状态
+    xil_printf("Current Mode: ");
+    switch(g_CurrentMode) {
+        case MODE_WATERFALL:   xil_printf("[ 1. Waterfall ]\r\n"); break;
+        case MODE_SWITCH_CTRL: xil_printf("[ 2. Switch Control ]\r\n"); break;
+        case MODE_BINARY_CNT:  xil_printf("[ 3. Binary Counter ]\r\n"); break;
+        case MODE_DICE_GAME:   xil_printf("[ 4. Dice Game ]\r\n"); break;
+        case MODE_REFLEX_GAME: xil_printf("[ 5. Reflex Test ]\r\n"); break;
+        case MODE_SOS_SIGNAL:  xil_printf("[ 6. SOS Signal ]\r\n"); break;
+        case MODE_OFF:         xil_printf("[ 0. OFF ]\r\n"); break;
+        default:               xil_printf("[ Unknown ]\r\n"); break;
+    }
+    xil_printf("----------------------------------------\r\n");
+
+    // 4. 打印选项
+    xil_printf(" [1] Waterfall     (Auto flow)\r\n");
+    xil_printf(" [2] Switch Ctrl   (Manual SW1-SW4)\r\n");
+    xil_printf(" [3] Binary Count  (LEDs show 8-4-2-1)\r\n");
+    xil_printf(" [4] Dice Game     (Roll a number)\r\n");
+    xil_printf(" [5] Reflex Test   (Test your speed)\r\n");
+    xil_printf(" [6] SOS Signal    (Emergency Flash)\r\n");
+    xil_printf(" [0] Turn OFF      (Sleep)\r\n");
+    xil_printf("\r\n");
+    xil_printf(">> Enter Command: ");
+}
+
+// --- 任务主函数 ---
+void Task_UART_Cmd(void *pvParameters)
+{
+    u8 RecvChar;
+    u32 UartBaseAddr = STDIN_BASEADDRESS;
+
+    // 首次启动显示菜单
+    Show_Menu();
+
+    for (;;) {
+        // 检查串口是否有输入
+        if (XUartPs_IsReceiveData(UartBaseAddr)) {
+
+            // 读取字符
+            RecvChar = XUartPs_ReadReg(UartBaseAddr, XUARTPS_FIFO_OFFSET);
+
+            // 只有输入有效数字时才刷新界面，避免误触
+            if (RecvChar >= '0' && RecvChar <= '6') {
+                switch(RecvChar) {
+                    case '1': g_CurrentMode = MODE_WATERFALL;   break;
+                    case '2': g_CurrentMode = MODE_SWITCH_CTRL; break;
+                    case '3': g_CurrentMode = MODE_BINARY_CNT;  break;
+                    case '4': g_CurrentMode = MODE_DICE_GAME;   break;
+                    case '5': g_CurrentMode = MODE_REFLEX_GAME; break;
+                    case '6': g_CurrentMode = MODE_SOS_SIGNAL;  break;
+                    case '0': g_CurrentMode = MODE_OFF;         break;
+                }
+                // 切换完模式后，立即刷新菜单
+                Show_Menu();
+            }
+            // 这里可以加一个 'm' 键专门用来刷新菜单
+            else if (RecvChar == 'm' || RecvChar == 'M') {
+                Show_Menu();
+            }
+        }
+
+        // 稍微延时，给 CPU 喘息机会
+        vTaskDelay(pdMS_TO_TICKS(50));
+    }
+}

@@ -1,0 +1,10 @@
+09:25:11 **** Build of configuration Debug for project test ****
+make all 
+E:/xilinx/Vitis/2021.2/gnuwin/bin/make --no-print-directory pre-build
+a9-linaro-pre-build-step
+' '
+E:/xilinx/Vitis/2021.2/gnuwin/bin/make --no-print-directory main-build
+make[1]: Nothing to be done for 'main-build'.
+
+09:25:12 Build Finished (took 418ms)
+

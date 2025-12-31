@@ -1,0 +1,31 @@
+Nothing to build in platform 'design_1_wrapper'
+
+10:26:04 **** Incremental Build of configuration Debug for project dma ****
+make all 
+E:/xilinx/Vitis/2021.2/gnuwin/bin/make --no-print-directory pre-build
+a9-linaro-pre-build-step
+' '
+E:/xilinx/Vitis/2021.2/gnuwin/bin/make --no-print-directory main-build
+'Building file: ../src/task_led.c'
+'Invoking: ARM v7 gcc compiler'
+arm-none-eabi-gcc -Wall -O0 -g3 -c -fmessage-length=0 -MT"src/task_led.o" -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard -IF:/study_vivado_ps/zc706_eth_DMA/vitis/design_1_wrapper/export/design_1_wrapper/sw/design_1_wrapper/freertos10_xilinx_ps7_cortexa9_0/bspinclude/include -MMD -MP -MF"src/task_led.d" -MT"src/task_led.o" -o "src/task_led.o" "../src/task_led.c"
+../src/task_led.c: In function 'Task_System_Monitor':
+../src/task_led.c:219:42: warning: '%s' directive writing up to 31 bytes into a region of size between 24 and 55 [-Wformat-overflow=]
+  219 |             sprintf(udp_msg, "[DATA] %s, %s", temp_str, vcc_str);
+      |                                          ^~             ~~~~~~~
+../src/task_led.c:219:13: note: 'sprintf' output between 10 and 72 bytes into a destination of size 64
+  219 |             sprintf(udp_msg, "[DATA] %s, %s", temp_str, vcc_str);
+      |             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+'Finished building: ../src/task_led.c'
+' '
+'Building target: dma.elf'
+'Invoking: ARM v7 gcc linker'
+arm-none-eabi-gcc -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard -Wl,-build-id=none -specs=Xilinx.spec -Wl,-T -Wl,../src/lscript.ld -LF:/study_vivado_ps/zc706_eth_DMA/vitis/design_1_wrapper/export/design_1_wrapper/sw/design_1_wrapper/freertos10_xilinx_ps7_cortexa9_0/bsplib/lib -o "dma.elf"  ./src/echo.o ./src/iic_phyreset.o ./src/main.o ./src/net_config.o ./src/sys_core.o ./src/task_cmd.o ./src/task_led.o   -lm -Wl,--start-group,-lxil,-lfreertos,-lgcc,-lc,--end-group -Wl,--start-group,-lxil,-llwip4,-lgcc,-lc,--end-group -Wl,--start-group,-lxilffs,-lxil,-lgcc,-lc,--end-group
+'Finished building target: dma.elf'
+' '
+'Invoking: ARM v7 Print Size'
+arm-none-eabi-size dma.elf  |tee "dma.elf.size"
+   text	   data	    bss	    dec	    hex	filename
+ 198691	   3500	3201088	3403279	 33ee0f	dma.elf
+'Finished building: dma.elf.size'
+' '

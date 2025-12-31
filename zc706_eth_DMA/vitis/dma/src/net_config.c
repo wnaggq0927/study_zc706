@@ -1,0 +1,58 @@
+/* net_config.c - 网络配置线程 */
+#include "sys_core.h"
+#include "netif/xadapter.h"
+#include "lwip/init.h"
+#include "lwip/dhcp.h"
+
+#include "xparameters.h"
+#include "platform_config.h"  // 修复 PLATFORM_EMAC_BASEADDR undeclared
+#include "lwip/sys.h"         // 修复 sys_thread_new 警告
+
+#define THREAD_STACKSIZE 1024
+// LwIP 结构体
+static struct netif server_netif;
+struct netif *echo_netif;
+
+void print_ip(char *msg, ip_addr_t *ip) {
+    xil_printf(msg);
+    xil_printf("%d.%d.%d.%d\n\r", ip4_addr1(ip), ip4_addr2(ip), ip4_addr3(ip), ip4_addr4(ip));
+}
+
+void print_ip_settings(ip_addr_t *ip, ip_addr_t *mask, ip_addr_t *gw) {
+    print_ip("Board IP: ", ip);
+    print_ip("Netmask : ", mask);
+    print_ip("Gateway : ", gw);
+}
+
+// --- 这就是报错说缺少的那个函数 ---
+void network_thread(void *p)
+{
+    struct netif *netif;
+    unsigned char mac_ethernet_address[] = { 0x00, 0x0a, 0x35, 0x00, 0x01, 0x02 };
+    ip_addr_t ipaddr, netmask, gw;
+
+    netif = &server_netif;
+
+    // 配置静态 IP
+    IP4_ADDR(&ipaddr,  192, 168, 0, 20);
+    IP4_ADDR(&netmask, 255, 255, 255,  0);
+    IP4_ADDR(&gw,      192, 168, 0, 1);
+
+    // 添加网络接口
+    if (!xemac_add(netif, &ipaddr, &netmask, &gw, mac_ethernet_address, PLATFORM_EMAC_BASEADDR)) {
+        xil_printf("Error adding N/W interface\r\n");
+        return;
+    }
+
+    netif_set_default(netif);
+    netif_set_up(netif);
+
+    // 启动 LwIP 包接收线程
+    sys_thread_new("xemacif_input_thread", (void(*)(void*))xemacif_input_thread, netif,
+            THREAD_STACKSIZE, DEFAULT_THREAD_PRIO);
+
+    print_ip_settings(&ipaddr, &netmask, &gw);
+
+    // 任务结束，自杀 (因为这是一个初始化线程，跑完就可以没了)
+    vTaskDelete(NULL);
+}

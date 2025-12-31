@@ -1,0 +1,74 @@
+#include "xaxidma.h"
+#include "xparameters.h"
+#include "xil_printf.h"
+#include "xil_cache.h"
+
+// DMA 设备 ID
+#define DMA_DEV_ID      XPAR_AXIDMA_0_DEVICE_ID
+
+// 定义内存地址 (从 DDR 的 0x10000000 处开始存)
+#define RX_BUFFER_BASE  0x10000000
+// 长度必须 >= TLAST 包长度 (我们 Verilog 里设的是 1024 个点 * 4字节)
+#define MAX_PKT_LEN     (1024 * 4)
+
+XAxiDma AxiDma;
+
+int main()
+{
+    int Status;
+    XAxiDma_Config *Config;
+
+    xil_printf("\r\n--- DMA Sine Wave Test ---\r\n");
+
+    // 1. 初始化 DMA 配置
+    Config = XAxiDma_LookupConfig(DMA_DEV_ID);
+    if (!Config) {
+        xil_printf("No config found for %d\r\n", DMA_DEV_ID);
+        return XST_FAILURE;
+    }
+
+    Status = XAxiDma_CfgInitialize(&AxiDma, Config);
+    if (Status != XST_SUCCESS) {
+        xil_printf("Initialization failed %d\r\n", Status);
+        return XST_FAILURE;
+    }
+
+    // 2. 禁用中断 (使用查询模式)
+    XAxiDma_IntrDisable(&AxiDma, XAXIDMA_IRQ_ALL_MASK, XAXIDMA_DEVICE_TO_DMA);
+
+    // 3. 准备接收缓存
+    u32 *RxBufferPtr = (u32 *)RX_BUFFER_BASE;
+    // Invalid Cache: 告诉 CPU 不要读缓存里的旧数据，要直接去 DDR 读最新的
+    Xil_DCacheInvalidateRange((UINTPTR)RxBufferPtr, MAX_PKT_LEN);
+
+    xil_printf(">> Starting DMA Transfer...\r\n");
+
+    // 4. 提交传输请求 (告诉 DMA: 往这里写 4096 字节!)
+    Status = XAxiDma_SimpleTransfer(&AxiDma, (UINTPTR)RxBufferPtr,
+                                    MAX_PKT_LEN, XAXIDMA_DEVICE_TO_DMA);
+
+    if (Status != XST_SUCCESS) {
+        xil_printf("DMA Transfer Failed\r\n");
+        return XST_FAILURE;
+    }
+
+    // 5. 等待传输完成 (等待 TLAST 信号)
+    while (XAxiDma_Busy(&AxiDma, XAXIDMA_DEVICE_TO_DMA)) {
+        // 如果 Verilog 的 TLAST 没写对，程序会卡死在这里
+    }
+
+    xil_printf(">> DMA Transfer Done!\r\n");
+
+    // 6. 打印数据验证
+    // 再次刷新 Cache
+    Xil_DCacheInvalidateRange((UINTPTR)RxBufferPtr, MAX_PKT_LEN);
+
+    xil_printf(">> Checking Data (First 16 points):\r\n");
+    for (int i = 0; i < 16; i++) {
+        // 取低 8 位 (因为我们的正弦波是 8 位的)
+        u8 sine_val = (u8)(RxBufferPtr[i] & 0xFF);
+        xil_printf("Index %02d: Raw=0x%08X, Sine=%d\r\n", i, RxBufferPtr[i], sine_val);
+    }
+
+    return XST_SUCCESS;
+}

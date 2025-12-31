@@ -1,0 +1,240 @@
+/* src/game_tasks.c - 逻辑实现 (双显版) */
+#include "sys_core.h"
+#include "FreeRTOS.h"
+#include "task.h"
+#include "xil_printf.h"
+#include "xil_cache.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
+// ---------------- DMA 示波器任务 ----------------
+void Task_DMA_Wave(void *pvParameters) {
+    u32 *RxBufferPtr = (u32 *)RX_BUFFER_BASE;
+    char udp_big_buf[1024];
+    char temp_buf[16];
+
+    vTaskDelay(pdMS_TO_TICKS(5000));
+
+    for(;;) {
+        if (g_CurrentMode == MODE_WAVE_OSCILLO && g_pc_connected) {
+            Xil_DCacheInvalidateRange((UINTPTR)RxBufferPtr, MAX_PKT_LEN);
+            int Status = XAxiDma_SimpleTransfer(&AxiDma, (UINTPTR)RxBufferPtr,
+                                            MAX_PKT_LEN, XAXIDMA_DEVICE_TO_DMA);
+            if (Status == XST_SUCCESS) {
+                while (XAxiDma_Busy(&AxiDma, XAXIDMA_DEVICE_TO_DMA)) { vTaskDelay(1); }
+
+                Xil_DCacheInvalidateRange((UINTPTR)RxBufferPtr, MAX_PKT_LEN);
+                strcpy(udp_big_buf, "[WAVE] ");
+                // 取前 50 个点发送
+                for(int i=0; i<50; i++) {
+                    int8_t val = (int8_t)(RxBufferPtr[i] & 0xFF);
+                    sprintf(temp_buf, "%d,", val);
+                    strcat(udp_big_buf, temp_buf);
+                }
+                UDP_Send_Log(udp_big_buf);
+                // 注意：DMA波形数据量太大，不建议在串口打印，否则会刷屏卡死
+            }
+        }
+        vTaskDelay(pdMS_TO_TICKS(50));
+    }
+}
+
+// ---------------- LED 辅助函数 ----------------
+static void Set_Leds(int l1, int l2, int l3, int l4) {
+    XGpioPs_WritePin(&Gpio, LED1_PIN, l1);
+    XGpioPs_WritePin(&Gpio, LED2_PIN, l2);
+    XGpioPs_WritePin(&Gpio, LED3_PIN, l3);
+    XGpioPs_WritePin(&Gpio, LED4_PIN, l4);
+}
+static void Show_Binary(u8 val) {
+    Set_Leds((val>>3)&1, (val>>2)&1, (val>>1)&1, (val>>0)&1);
+}
+
+// ---------------- LED 核心逻辑 (增强版) ----------------
+void Task_LED_Logic(void *pvParameters) {
+    int counter = 0;
+    char udp_buf[64];
+
+    // 游戏状态变量
+    static int game_state = 0;
+    static int last_sw_state = 0;
+    static int last_dice_sw = 0;
+    static TickType_t start_time = 0;
+
+    // 初始化读取
+    last_sw_state = XGpioPs_ReadPin(&Gpio, SW_BASE_PIN + 0);
+    last_dice_sw  = XGpioPs_ReadPin(&Gpio, SW_BASE_PIN + 3);
+
+    for (;;) {
+        switch (g_CurrentMode) {
+
+            case MODE_WATERFALL:
+                 Set_Leds(1, 0, 0, 0); vTaskDelay(150);
+                 Set_Leds(0, 1, 0, 0); vTaskDelay(150);
+                 Set_Leds(0, 0, 1, 0); vTaskDelay(150);
+                 Set_Leds(0, 0, 0, 1); vTaskDelay(150);
+                 break;
+
+            case MODE_SWITCH_CTRL: {
+                int s1 = XGpioPs_ReadPin(&Gpio, SW_BASE_PIN + 0);
+                int s2 = XGpioPs_ReadPin(&Gpio, SW_BASE_PIN + 1);
+                int s3 = XGpioPs_ReadPin(&Gpio, SW_BASE_PIN + 2);
+                int s4 = XGpioPs_ReadPin(&Gpio, SW_BASE_PIN + 3);
+                Set_Leds(s1, s2, s3, s4);
+                // 状态变化时打印太频繁，这里省略，只看灯即可
+                vTaskDelay(50);
+                break;
+            }
+
+            case MODE_BINARY_CNT:
+                counter = (counter + 1) % 16;
+                Show_Binary(counter);
+
+                // 【新增】同时打印到串口
+                xil_printf(">> Binary Count: %d\r\n", counter);
+
+                sprintf(udp_buf, "Binary: %d [ %d %d %d %d ]", counter, (counter>>3)&1, (counter>>2)&1, (counter>>1)&1, (counter>>0)&1);
+                UDP_Send_Log(udp_buf);
+                vTaskDelay(1000); // 1秒跳一次，方便你看清打印
+                break;
+
+            case MODE_DICE_GAME: {
+                int curr_sw = XGpioPs_ReadPin(&Gpio, SW_BASE_PIN + 3);
+                if (curr_sw != last_dice_sw) {
+                    last_dice_sw = curr_sw;
+
+                    xil_printf(">> Dice Rolling...\r\n");
+                    // 动画
+                    for(int i=0; i<10; i++) {
+                        Show_Binary(rand() % 16);
+                        vTaskDelay(30 + i*10);
+                    }
+                    int dice = (rand() % 6) + 1;
+                    Show_Binary(dice);
+
+                    // 【新增】同时打印结果到串口
+                    xil_printf(">> Dice Result: %d\r\n", dice);
+
+                    sprintf(udp_buf, "Dice Result: %d", dice);
+                    UDP_Send_Log(udp_buf);
+                }
+                vTaskDelay(100);
+                break;
+            }
+
+            case MODE_REFLEX_GAME:
+                if (game_state == 0) { // 等待
+                    Set_Leds(0, 0, 0, 0);
+                    vTaskDelay(2000 + (rand() % 2000));
+                    Set_Leds(1, 1, 1, 1); // 亮灯
+                    xil_printf(">> GO! Press Switch 1!\r\n"); // 【新增】
+                    start_time = xTaskGetTickCount();
+                    last_sw_state = XGpioPs_ReadPin(&Gpio, SW_BASE_PIN + 0);
+                    game_state = 1;
+                }
+                else if (game_state == 1) { // 监测按键
+                    int curr_sw = XGpioPs_ReadPin(&Gpio, SW_BASE_PIN + 0);
+                    if (curr_sw != last_sw_state) {
+                        TickType_t end = xTaskGetTickCount();
+                        int ms = (end - start_time) * portTICK_PERIOD_MS;
+
+                        // 【新增】同时打印成绩到串口
+                        xil_printf(">> Reflex Time: %d ms\r\n", ms);
+
+                        sprintf(udp_buf, "Reflex Time: %d ms", ms);
+                        UDP_Send_Log(udp_buf);
+                        game_state = 2;
+                    }
+                    vTaskDelay(10);
+                }
+                else if (game_state == 2) { // 冷却
+                    vTaskDelay(2000);
+                    game_state = 0;
+                }
+                break;
+
+            case MODE_SOS_SIGNAL:
+                xil_printf(">> Sending SOS...\r\n"); // 【新增】
+                // S
+                for(int i=0; i<3; i++) { Set_Leds(1,1,1,1); vTaskDelay(100); Set_Leds(0,0,0,0); vTaskDelay(100); }
+                vTaskDelay(300);
+                // O
+                for(int i=0; i<3; i++) { Set_Leds(1,1,1,1); vTaskDelay(400); Set_Leds(0,0,0,0); vTaskDelay(100); }
+                vTaskDelay(300);
+                // S
+                for(int i=0; i<3; i++) { Set_Leds(1,1,1,1); vTaskDelay(100); Set_Leds(0,0,0,0); vTaskDelay(100); }
+                vTaskDelay(1500);
+                break;
+
+            case MODE_WAVE_OSCILLO:
+                Set_Leds(1, 1, 1, 1); vTaskDelay(500); break;
+
+            default:
+                Set_Leds(0,0,0,0); vTaskDelay(100); break;
+        }
+    }
+}
+
+// ---------------- 系统监控任务 ----------------
+void Task_System_Monitor(void *pvParameters) {
+    char temp_str[32], vcc_str[32], udp_msg[64];
+    vTaskDelay(pdMS_TO_TICKS(5000));
+    for(;;) {
+        if(g_pc_connected) {
+            Read_Chip_Temp(temp_str);
+            Read_Chip_Vcc(vcc_str);
+            sprintf(udp_msg, "[DATA] %s, %s", temp_str, vcc_str);
+            UDP_Send_Log(udp_msg);
+
+            // 【保留】这个心跳打印保留，确认系统活着
+            xil_printf("[SysMon] %s, %s\r\n", temp_str, vcc_str);
+        }
+        vTaskDelay(pdMS_TO_TICKS(2000));
+    }
+}
+
+// ---------------- UDP 接收任务 (增强版) ----------------
+void udp_cmd_thread(void *p) {
+    int sock, n;
+    struct sockaddr_in server_addr, client_addr;
+    int addr_len = sizeof(client_addr);
+    char recv_buf[100];
+
+    if ((sock = lwip_socket(AF_INET, SOCK_DGRAM, 0)) < 0) return;
+    g_udp_sock = sock;
+
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(5001);
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+
+    if (lwip_bind(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) return;
+
+    while (1) {
+        n = lwip_recvfrom(sock, recv_buf, sizeof(recv_buf) - 1, 0,
+                          (struct sockaddr *)&client_addr, (socklen_t *)&addr_len);
+        if (n > 0) {
+            memcpy(&g_pc_addr, &client_addr, sizeof(client_addr));
+            g_pc_connected = 1;
+            recv_buf[n] = 0;
+            char cmd = recv_buf[0];
+
+            if (cmd >= '0' && cmd <= '7') {
+                // 【新增】在这里打印，你点一下 Python 按钮，串口就告诉你切到哪了
+                xil_printf("\r\n[CMD] Received Mode Switch: %c\r\n", cmd);
+
+                switch(cmd) {
+                    case '1': g_CurrentMode = MODE_WATERFALL; xil_printf(">> Mode: Waterfall\r\n"); break;
+                    case '2': g_CurrentMode = MODE_SWITCH_CTRL; xil_printf(">> Mode: Switch Control\r\n"); break;
+                    case '3': g_CurrentMode = MODE_BINARY_CNT; xil_printf(">> Mode: Binary Counter\r\n"); break;
+                    case '4': g_CurrentMode = MODE_DICE_GAME; xil_printf(">> Mode: Dice Game\r\n"); break;
+                    case '5': g_CurrentMode = MODE_REFLEX_GAME; xil_printf(">> Mode: Reflex Test\r\n"); break;
+                    case '6': g_CurrentMode = MODE_SOS_SIGNAL; xil_printf(">> Mode: SOS\r\n"); break;
+                    case '7': g_CurrentMode = MODE_WAVE_OSCILLO; xil_printf(">> Mode: Oscilloscope (DMA)\r\n"); break;
+                    case '0': g_CurrentMode = MODE_OFF; xil_printf(">> Mode: OFF\r\n"); break;
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,66 @@
+/* main.c - 系统入口与任务调度 */
+#include "sys_core.h"
+#include "FreeRTOS.h"
+#include "task.h"
+#include "xil_printf.h"
+#include "lwip/sys.h"
+
+// 外部函数声明
+void lwip_init();
+void network_thread(void *p);
+
+// 主初始化线程
+void main_thread(void *p) {
+    xil_printf("\r\n--- System Booting ---\r\n");
+
+    // 1. 初始化硬件 (必须最先执行)
+    Init_All_Hardware();
+
+    // 2. 初始化网络
+    lwip_init();
+
+    // 3. 启动网络基础线程 (LwIP) - 优先级默认即可
+    sys_thread_new("NW_THRD", network_thread, NULL, 1024, DEFAULT_THREAD_PRIO);
+
+    // 4. 启动 UDP 监听 (接收 Python 指令)
+    sys_thread_new("UDP_THRD", udp_cmd_thread, NULL, 1024, DEFAULT_THREAD_PRIO);
+
+    xil_printf(">> System Started. Launching Application Tasks...\r\n");
+
+    // ================== 关键任务创建区 ==================
+
+    // 【优先级 4 - 最高】LED 任务
+    // 必须最高，否则灯光动画会卡顿
+    xTaskCreate(Task_LED_Logic, "LED", 1024, NULL, tskIDLE_PRIORITY + 4, NULL);
+
+    // 【优先级 3 - 高】串口命令 (修复：之前这里可能漏了！)
+    // 必须比 DMA 高，否则示波器跑起来后串口会没反应
+    xTaskCreate(Task_UART_Cmd, "CMD", 1024, NULL, tskIDLE_PRIORITY + 3, NULL);
+
+    // 【优先级 2 - 中】系统监控 (温度/电压)
+    // 偶尔发个包，不需要太高优先级
+    xTaskCreate(Task_System_Monitor, "SysMon", 1024, NULL, tskIDLE_PRIORITY + 2, NULL);
+
+    // 【优先级 1 - 低】DMA 示波器
+    // 数据量最大，最占 CPU。把它设为低优先级，利用 CPU 空闲时间发送波形，
+    // 这样就不会卡死串口和 LED 了。
+    xTaskCreate(Task_DMA_Wave, "DMA", 4096, NULL, tskIDLE_PRIORITY + 1, NULL);
+
+    // ===================================================
+
+    // 初始化完成，自杀
+    vTaskDelete(NULL);
+}
+
+int main() {
+    xil_printf("--- ZYNQ-7000 Power On ---\r\n");
+
+    // 创建主线程
+    sys_thread_new("main_thrd", (void(*)(void*))main_thread, 0, 4096, DEFAULT_THREAD_PRIO);
+
+    // 移交控制权给操作系统
+    vTaskStartScheduler();
+
+    while(1);
+    return 0;
+}

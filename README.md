@@ -59,5 +59,5 @@
     * [Feature] 实现了 1024 点/包的完整正弦波采集。
 
 ---
-*Author: [Your Name]*
+*Author: [little wang]*
 *Last Updated: 2025-12-31*

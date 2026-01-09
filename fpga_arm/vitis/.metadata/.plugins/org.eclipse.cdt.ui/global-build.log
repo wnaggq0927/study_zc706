@@ -1,0 +1,35 @@
+Nothing to build in platform 'zc706_md'
+
+16:23:41 **** Incremental Build of configuration Debug for project zc706_md_hdmi ****
+make all 
+E:/xilinx/Vitis/2021.2/gnuwin/bin/make --no-print-directory pre-build
+a9-linaro-pre-build-step
+' '
+E:/xilinx/Vitis/2021.2/gnuwin/bin/make --no-print-directory main-build
+'Building file: ../src/main.c'
+'Invoking: ARM v7 gcc compiler'
+arm-none-eabi-gcc -Wall -O0 -g3 -c -fmessage-length=0 -MT"src/main.o" -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard -IH:/test/two/fpga_arm/vitis/zc706_md/export/zc706_md/sw/zc706_md/standalone_ps7_cortexa9_0/bspinclude/include -MMD -MP -MF"src/main.d" -MT"src/main.o" -o "src/main.o" "../src/main.c"
+../src/main.c: In function 'main':
+../src/main.c:179:5: warning: implicit declaration of function 'lwip_init'; did you mean 'ip_init'? [-Wimplicit-function-declaration]
+  179 |     lwip_init();
+      |     ^~~~~~~~~
+      |     ip_init
+../src/main.c:202:31: warning: implicit declaration of function 'tcp_fasttmr' [-Wimplicit-function-declaration]
+  202 |         if (TcpFastTmrFlag) { tcp_fasttmr(); TcpFastTmrFlag = 0; }
+      |                               ^~~~~~~~~~~
+../src/main.c:203:31: warning: implicit declaration of function 'tcp_slowtmr' [-Wimplicit-function-declaration]
+  203 |         if (TcpSlowTmrFlag) { tcp_slowtmr(); TcpSlowTmrFlag = 0; }
+      |                               ^~~~~~~~~~~
+'Finished building: ../src/main.c'
+' '
+'Building target: zc706_md_hdmi.elf'
+'Invoking: ARM v7 gcc linker'
+arm-none-eabi-gcc -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard -Wl,-build-id=none -specs=Xilinx.spec -Wl,-T -Wl,../src/lscript.ld -LH:/test/two/fpga_arm/vitis/zc706_md/export/zc706_md/sw/zc706_md/standalone_ps7_cortexa9_0/bsplib/lib -o "zc706_md_hdmi.elf"  ./src/echo.o ./src/i2c_access.o ./src/iic_phyreset.o ./src/main.o ./src/platform.o ./src/platform_mb.o ./src/platform_ppc.o ./src/platform_zynq.o ./src/platform_zynqmp.o ./src/sfp.o ./src/si5324.o   -Wl,--start-group,-lxil,-lgcc,-lc,--end-group -Wl,--start-group,-lxil,-llwip4,-lgcc,-lc,--end-group -Wl,--start-group,-lxilffs,-lxil,-lgcc,-lc,--end-group
+'Finished building target: zc706_md_hdmi.elf'
+' '
+'Invoking: ARM v7 Print Size'
+arm-none-eabi-size zc706_md_hdmi.elf  |tee "zc706_md_hdmi.elf.size"
+   text	   data	    bss	    dec	    hex	filename
+ 120011	   3172	6412400	6535583	 63b99f	zc706_md_hdmi.elf
+'Finished building: zc706_md_hdmi.elf.size'
+' '

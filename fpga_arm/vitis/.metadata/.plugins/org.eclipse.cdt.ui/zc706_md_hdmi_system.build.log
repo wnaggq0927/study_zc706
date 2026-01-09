@@ -1,0 +1,10 @@
+11:32:06 **** Incremental Build of configuration Debug for project zc706_md_hdmi_system ****
+make all 
+Generating bif file for the system project
+generate_system_bif.bat 56688 H:/test/two/fpga_arm/vitis/zc706_md/export/zc706_md/zc706_md.xpfm standalone_ps7_cortexa9_0 H:/test/two/fpga_arm/vitis/zc706_md_hdmi_system/Debug/system.bif
+sdcard_gen --xpfm H:/test/two/fpga_arm/vitis/zc706_md/export/zc706_md/zc706_md.xpfm --sys_config zc706_md --bif H:/test/two/fpga_arm/vitis/zc706_md_hdmi_system/Debug/system.bif --bitstream H:/test/two/fpga_arm/vitis/zc706_md_hdmi/_ide/bitstream/design_1_wrapper.bit --elf H:/test/two/fpga_arm/vitis/zc706_md_hdmi/Debug/zc706_md_hdmi.elf,ps7_cortexa9_0
+creating BOOT.BIN using H:/test/two/fpga_arm/vitis/zc706_md_hdmi/_ide/bitstream/design_1_wrapper.bit
+Running E:/xilinx/Vitis/2021.2/bin/bootgen  -image H:/test/two/fpga_arm/vitis/zc706_md_hdmi_system/Debug/sd_card_temp/boot.bif -w -o i BOOT.BIN
+
+11:32:25 Build Finished (took 18s.454ms)
+

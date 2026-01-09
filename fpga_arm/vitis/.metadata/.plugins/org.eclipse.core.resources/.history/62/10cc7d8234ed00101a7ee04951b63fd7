@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="ASCII"?>
+<sdkproject:SdkProject xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:sdkproject="http://www.xilinx.com/sdkproject" name="zc706_md_hdmi" location="H:/test/two/fpga_arm/vitis/zc706_md_hdmi" platform="H:/test/two/fpga_arm/vitis/zc706_md/export/zc706_md/zc706_md.xpfm" platformUID="xilinx:zc706::0.0(custom)" systemProject="zc706_md_hdmi_system" sysConfig="zc706_md" runtime="cpp" cpu="standalone_ps7_cortexa9_0" cpuInstance="ps7_cortexa9_0" os="standalone" mssSignature="3d8c174622c615039908827b01471edd">
+  <configuration name="Debug" id="xilinx.gnu.armv7.exe.debug.295406433">
+    <configBuildOptions xsi:type="sdkproject:SdkOptions"/>
+    <lastBuildOptions xsi:type="sdkproject:SdkOptions"/>
+  </configuration>
+  <configuration name="Release" id="xilinx.gnu.armv7.exe.release.402896543" dirty="true">
+    <configBuildOptions xsi:type="sdkproject:SdkOptions"/>
+  </configuration>
+  <template appTemplateName="lwip_echo_server" hasBspSettings="true"/>
+</sdkproject:SdkProject>

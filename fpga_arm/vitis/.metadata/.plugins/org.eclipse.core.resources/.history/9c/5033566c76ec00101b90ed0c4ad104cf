@@ -1,0 +1,209 @@
+/*
+ * ZC706 UDP Video Camera (1080p Version)
+ * Resolution: 1920x1080
+ */
+
+#include <stdio.h>
+#include "xparameters.h"
+#include "netif/xadapter.h"
+#include "platform.h"
+#include "platform_config.h"
+#include "xil_printf.h"
+#include "lwip/udp.h"
+#include "xil_cache.h"
+#include "xaxivdma.h"
+#include "sleep.h"
+#include "lwip/tcp.h"
+
+// ================= 配置区域 =================
+#define BROADCAST_IP "192.168.0.255"
+#define PC_PORT       5005
+#define BOARD_MAC  {0x00, 0x0a, 0x35, 0x00, 0x01, 0x02}
+
+// --- 关键修改：分辨率改为 1080p ---
+#define DDR_BASE_ADDR   0x10000000
+#define H_RES           1920  // <--- 修改为 1920
+#define V_RES           1080  // <--- 修改为 1080
+#define BYTES_PER_PIXEL 3
+#define LINE_SIZE       (H_RES * BYTES_PER_PIXEL)
+
+// ================= 全局变量 =================
+static struct netif server_netif;
+struct netif *echo_netif;
+struct udp_pcb *pcb;
+XAxiVdma Vdma;
+
+extern volatile int TcpFastTmrFlag;
+extern volatile int TcpSlowTmrFlag;
+
+// ================= VDMA 初始化 =================
+int Init_VDMA() {
+    XAxiVdma_Config *Config = XAxiVdma_LookupConfig(XPAR_AXIVDMA_0_DEVICE_ID);
+    if (!Config) {
+        xil_printf("VDMA Config not found!\r\n");
+        return XST_FAILURE;
+    }
+    XAxiVdma_CfgInitialize(&Vdma, Config, Config->BaseAddress);
+
+    XAxiVdma_DmaSetup WriteCfg;
+    WriteCfg.VertSizeInput = V_RES;
+    WriteCfg.HoriSizeInput = LINE_SIZE;
+    WriteCfg.Stride        = LINE_SIZE;
+    WriteCfg.FrameDelay    = 0;
+    WriteCfg.EnableCircularBuf = 1;
+    WriteCfg.EnableSync    = 0;
+    WriteCfg.PointNum      = 0;
+    WriteCfg.EnableFrameCounter = 0;
+    WriteCfg.FixedFrameStoreAddr = 0;
+
+    UINTPTR FrameAddr[3];
+    // 1080p 数据量较大，确保这里计算正确（代码会自动算）
+    FrameAddr[0] = DDR_BASE_ADDR;
+    FrameAddr[1] = DDR_BASE_ADDR + V_RES * LINE_SIZE;
+    FrameAddr[2] = DDR_BASE_ADDR + 2 * V_RES * LINE_SIZE;
+
+    XAxiVdma_DmaConfig(&Vdma, XAXIVDMA_WRITE, &WriteCfg);
+    XAxiVdma_DmaSetBufferAddr(&Vdma, XAXIVDMA_WRITE, FrameAddr);
+    XAxiVdma_DmaStart(&Vdma, XAXIVDMA_WRITE);
+    return XST_SUCCESS;
+}
+
+// ============================================================
+// 【最终版】Send_Frame_UDP (关闭调试打印，全速运行)
+// ============================================================
+void Send_Frame_UDP() {
+    struct pbuf *p;
+    u8 *line_ptr = (u8 *)DDR_BASE_ADDR;
+    err_t err;
+
+    // 刷新 Cache
+    Xil_DCacheInvalidateRange(DDR_BASE_ADDR, V_RES * LINE_SIZE);
+
+    int total_len = V_RES * LINE_SIZE;
+    int chunk_size = 1024;
+    int sent_len = 0;
+
+    while (sent_len < total_len) {
+            int len = (total_len - sent_len > chunk_size) ? chunk_size : (total_len - sent_len);
+
+            p = pbuf_alloc(PBUF_TRANSPORT, len, PBUF_REF);
+
+            if (p != NULL) {
+                p->payload = line_ptr + sent_len;
+                err = udp_send(pcb, p);
+
+                if (err == ERR_OK) {
+                    pbuf_free(p);
+                    sent_len += len;
+                    xemacif_input(echo_netif);
+
+                    // ==========================================
+                    // 【新增】关键修改：发包限速
+                    // ==========================================
+                    // 每发一个包，稍微停顿一下。
+                    // 1080p 数据量太大，不加延时电脑接不住。
+                    // 尝试 usleep(10) 到 usleep(50) 之间调整
+                    usleep(10);
+                }
+                else {
+                    // 发送失败重试
+                    pbuf_free(p);
+                    xemacif_input(echo_netif);
+                    usleep(20);
+                }
+            } else {
+                // 内存满
+                xemacif_input(echo_netif);
+                usleep(20);
+            }
+        }
+    // 只保留这一句打印即可
+    xil_printf("Frame Broadcasted! (Size: %d)\r\n", total_len);
+}
+// ================= 硬件初始化辅助函数 =================
+#if defined (__arm__) && !defined (ARMR5)
+#if XPAR_GIGE_PCS_PMA_SGMII_CORE_PRESENT == 1 || XPAR_GIGE_PCS_PMA_1000BASEX_CORE_PRESENT == 1
+int ProgramSi5324(void);
+int ProgramSfpPhy(void);
+#endif
+#endif
+
+// ================= 主函数 =================
+int main()
+{
+    ip_addr_t ipaddr, netmask, gw;
+    unsigned char mac_ethernet_address[] = BOARD_MAC;
+    echo_netif = &server_netif;
+
+#if defined (__arm__) && !defined (ARMR5)
+#if XPAR_GIGE_PCS_PMA_SGMII_CORE_PRESENT == 1 || XPAR_GIGE_PCS_PMA_1000BASEX_CORE_PRESENT == 1
+    ProgramSi5324();
+    ProgramSfpPhy();
+#endif
+#endif
+
+    init_platform();
+
+    IP4_ADDR(&ipaddr,  192, 168,   0, 20);
+    IP4_ADDR(&netmask, 255, 255, 255,  0);
+    IP4_ADDR(&gw,      192, 168,   0,  1);
+
+    xil_printf("\r\n--- ZC706 UDP Video Camera (1080p) Start ---\r\n");
+
+    lwip_init();
+
+    if (!xemac_add(echo_netif, &ipaddr, &netmask, &gw, mac_ethernet_address, PLATFORM_EMAC_BASEADDR)) {
+        xil_printf("Error adding N/W interface\r\n");
+        return -1;
+    }
+
+    netif_set_default(echo_netif);
+    platform_enable_interrupts();
+    netif_set_up(echo_netif);
+
+    if (Init_VDMA() != XST_SUCCESS) {
+        xil_printf("VDMA Init Failed\r\n");
+    }
+
+    pcb = udp_new();
+    ip_addr_t broadcast_ip;
+    IP4_ADDR(&broadcast_ip, 192, 168, 0, 255);
+
+    udp_bind(pcb, IP_ADDR_ANY, 0);
+    udp_connect(pcb, &broadcast_ip, PC_PORT);
+
+    xil_printf("UDP Setup Complete. Broadcasting to %s:%d\r\n", BROADCAST_IP, PC_PORT);
+
+    while (1) {
+        if (TcpFastTmrFlag) {
+            tcp_fasttmr();
+            TcpFastTmrFlag = 0;
+        }
+        if (TcpSlowTmrFlag) {
+            tcp_slowtmr();
+            TcpSlowTmrFlag = 0;
+        }
+
+        xemacif_input(echo_netif);
+        Send_Frame_UDP();
+        // 在 while(1) 循环里，Send_Frame_UDP() 后面加上这个：
+
+        u32 status = XAxiVdma_GetStatus(&Vdma, XAXIVDMA_WRITE);
+
+                // 检查是否有错误位 (Err_Irq, DMAIntErr, SOFLateErr 等)
+                if (status & XAXIVDMA_SR_ERR_ALL_MASK) {
+                    // 打印一下错误码，方便调试（稳定后可以注释掉）
+                    // xil_printf("VDMA Error Detected: 0x%08x (Clearing...)\r\n", status);
+
+                    // 关键修改：不要 Reset！不要 Init！
+                    // 只是向状态寄存器写 1，以清除错误位。
+                    // 0x34 是 S2MM_DMASR (Status Register) 的偏移地址
+                    XAxiVdma_WriteReg(Vdma.BaseAddr, 0x34, status & XAXIVDMA_SR_ERR_ALL_MASK);
+                }
+        // 1080p 数据量大，稍微多给点间隔，或者保持 100ms 也可以
+        usleep(100000);
+    }
+
+    cleanup_platform();
+    return 0;
+}

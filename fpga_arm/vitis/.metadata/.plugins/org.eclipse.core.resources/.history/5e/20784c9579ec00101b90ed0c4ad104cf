@@ -1,0 +1,262 @@
+/*
+ * ZC706 UDP Video Camera (1080p Version + Upload Support)
+ * Resolution: 1920x1080
+ */
+
+#include <stdio.h>
+#include "xparameters.h"
+#include "netif/xadapter.h"
+#include "platform.h"
+#include "platform_config.h"
+#include "xil_printf.h"
+#include "lwip/udp.h"
+#include "xil_cache.h"
+#include "xaxivdma.h"
+#include "sleep.h"
+#include "lwip/tcp.h"
+
+// ================= 配置区域 =================
+#define BROADCAST_IP "192.168.0.255"
+#define PC_PORT       5005
+#define BOARD_MAC  {0x00, 0x0a, 0x35, 0x00, 0x01, 0x02}
+
+// --- 内存地址规划 ---
+#define DDR_ADDR_MANDEL   0x10000000  // 区域 A: VDMA 写入的曼德博图
+#define DDR_ADDR_UPLOAD   0x11000000  // 区域 B: 电脑上传的静态图 (偏移 16MB)
+#define DDR_ADDR_IMG2     0x12000000  // 图片 2 存放地址 (偏移 16MB，足够放下一张1080p)
+#define UDP_RECV_PORT     5006        // 监听端口: 接收电脑发来的图
+
+// --- 分辨率设置 ---
+#define H_RES            1920
+#define V_RES            1080
+#define BYTES_PER_PIXEL  3
+#define LINE_SIZE        (H_RES * BYTES_PER_PIXEL)
+
+// ================= 全局变量 =================
+static struct netif server_netif;
+struct netif *echo_netif;
+struct udp_pcb *pcb;      // 发送用的 PCB
+struct udp_pcb *recv_pcb; // 接收用的 PCB
+XAxiVdma Vdma;
+
+extern volatile int TcpFastTmrFlag;
+extern volatile int TcpSlowTmrFlag;
+
+// 全局变量：控制当前显示哪个画面 (0: 曼德博, 1: 上传图)
+
+volatile int display_mode = 0;
+// ================= UDP 接收回调函数 (接收电脑图片) =================
+// ================= UDP 接收回调函数 =================
+void image_upload_callback(void *arg, struct udp_pcb *tpcb, struct pbuf *p, const ip_addr_t *addr, u16_t port) {
+    if (p == NULL) return;
+
+    // 新协议：前8个字节是头信息
+    // [0-3]: 图片 ID (1 或 2)
+    // [4-7]: 偏移量 (Offset)
+    if (p->len > 8) {
+        u32 *header = (u32 *)p->payload;
+        u32 img_id = header[0];  // 获取图片 ID
+        u32 offset = header[1];  // 获取地址偏移
+
+        // 根据 ID 决定写入哪个地址
+        u32 base_addr = (img_id == 2) ? DDR_ADDR_IMG2 : DDR_ADDR_IMG1;
+        u8 *target_addr = (u8 *)(base_addr + offset);
+
+        // 1. 拷贝数据 (跳过前8字节的头)
+        memcpy(target_addr, (u8 *)p->payload + 8, p->len - 8);
+
+        // 2. 刷 Cache (防止花屏/条纹)
+        Xil_DCacheFlushRange((INTPTR)target_addr, p->len - 8);
+
+        // 收到图片后，强制切换到对应的显示模式，让你立刻看到效果
+        if (display_mode == 0) {
+            display_mode = img_id;
+            xil_printf("Received Img %d! Switching mode.\r\n", img_id);
+        }
+    }
+    pbuf_free(p);
+}
+
+// ================= 初始化接收端口 =================
+void Setup_RX_UDP() {
+    recv_pcb = udp_new();
+    // 绑定端口 5006
+    udp_bind(recv_pcb, IP_ADDR_ANY, UDP_RECV_PORT);
+    // 设置回调
+    udp_recv(recv_pcb, image_upload_callback, NULL);
+    xil_printf("Listening for upload images on port %d...\r\n", UDP_RECV_PORT);
+}
+
+// ================= VDMA 初始化 (仅配置写入通道 S2MM) =================
+int Init_VDMA() {
+    XAxiVdma_Config *Config = XAxiVdma_LookupConfig(XPAR_AXIVDMA_0_DEVICE_ID);
+    if (!Config) {
+        xil_printf("VDMA Config not found!\r\n");
+        return XST_FAILURE;
+    }
+    XAxiVdma_CfgInitialize(&Vdma, Config, Config->BaseAddress);
+
+    XAxiVdma_DmaSetup WriteCfg;
+    WriteCfg.VertSizeInput = V_RES;
+    WriteCfg.HoriSizeInput = LINE_SIZE;
+    WriteCfg.Stride        = LINE_SIZE;
+    WriteCfg.FrameDelay    = 0;
+    WriteCfg.EnableCircularBuf = 1;
+    WriteCfg.EnableSync    = 0;
+    WriteCfg.PointNum      = 0;
+    WriteCfg.EnableFrameCounter = 0;
+    WriteCfg.FixedFrameStoreAddr = 0;
+    // 建议加上这个以防万一
+    // WriteCfg.GenLockMode = XAXIVDMA_GL_DYNAMIC;
+
+    UINTPTR FrameAddr[3];
+    // VDMA 依然负责把 FPGA 生成的曼德博图写入 区域 A
+    FrameAddr[0] = DDR_ADDR_MANDEL;
+    FrameAddr[1] = DDR_ADDR_MANDEL + V_RES * LINE_SIZE; // 这里为了省事，其实多缓冲可以设为连续
+    FrameAddr[2] = DDR_ADDR_MANDEL + 2 * V_RES * LINE_SIZE;
+
+    XAxiVdma_DmaConfig(&Vdma, XAXIVDMA_WRITE, &WriteCfg);
+    XAxiVdma_DmaSetBufferAddr(&Vdma, XAXIVDMA_WRITE, FrameAddr);
+    XAxiVdma_DmaStart(&Vdma, XAXIVDMA_WRITE);
+    return XST_SUCCESS;
+}
+
+// ============================================================
+// 【发送函数】Send_Frame_UDP
+// ============================================================
+void Send_Frame_UDP() {
+    struct pbuf *p;
+    err_t err;
+
+    u32 current_addr;
+        if (display_mode == 1)      current_addr = DDR_ADDR_IMG1;
+        else if (display_mode == 2) current_addr = DDR_ADDR_IMG2;
+        else                        current_addr = DDR_ADDR_MANDEL;
+    u8 *line_ptr = (u8 *)current_addr;
+
+    // 刷新 Cache，确保 CPU 读取的是 DDR 最新数据
+    Xil_DCacheInvalidateRange(current_addr, V_RES * LINE_SIZE);
+
+    int total_len = V_RES * LINE_SIZE;
+    int chunk_size = 1024;
+    int sent_len = 0;
+
+    while (sent_len < total_len) {
+        int len = (total_len - sent_len > chunk_size) ? chunk_size : (total_len - sent_len);
+
+        p = pbuf_alloc(PBUF_TRANSPORT, len, PBUF_REF);
+
+        if (p != NULL) {
+            // 指针指向当前选择的 DDR 区域
+            p->payload = line_ptr + sent_len;
+            err = udp_send(pcb, p);
+
+            if (err == ERR_OK) {
+                pbuf_free(p);
+                sent_len += len;
+                xemacif_input(echo_netif); // 接收处理必须放在这里，保证双向通信
+
+                // 发包限速
+                usleep(10);
+            }
+            else {
+                // 发送失败重试
+                pbuf_free(p);
+                xemacif_input(echo_netif);
+                usleep(20);
+            }
+        } else {
+            // 内存满
+            xemacif_input(echo_netif);
+            usleep(20);
+        }
+    }
+    // 打印当前模式，方便确认
+    // xil_printf("Frame Sent! Mode: %d\r\n", display_mode);
+}
+
+// ================= 硬件初始化辅助函数 =================
+#if defined (__arm__) && !defined (ARMR5)
+#if XPAR_GIGE_PCS_PMA_SGMII_CORE_PRESENT == 1 || XPAR_GIGE_PCS_PMA_1000BASEX_CORE_PRESENT == 1
+int ProgramSi5324(void);
+int ProgramSfpPhy(void);
+#endif
+#endif
+
+// ================= 主函数 =================
+int main()
+{
+    ip_addr_t ipaddr, netmask, gw;
+    unsigned char mac_ethernet_address[] = BOARD_MAC;
+    echo_netif = &server_netif;
+
+#if defined (__arm__) && !defined (ARMR5)
+#if XPAR_GIGE_PCS_PMA_SGMII_CORE_PRESENT == 1 || XPAR_GIGE_PCS_PMA_1000BASEX_CORE_PRESENT == 1
+    ProgramSi5324();
+    ProgramSfpPhy();
+#endif
+#endif
+
+    init_platform();
+
+    IP4_ADDR(&ipaddr,  192, 168,   0, 20);
+    IP4_ADDR(&netmask, 255, 255, 255,  0);
+    IP4_ADDR(&gw,      192, 168,   0,  1);
+
+    xil_printf("\r\n--- ZC706 UDP Video Camera (1080p + Upload) ---\r\n");
+
+    lwip_init();
+
+    if (!xemac_add(echo_netif, &ipaddr, &netmask, &gw, mac_ethernet_address, PLATFORM_EMAC_BASEADDR)) {
+        xil_printf("Error adding N/W interface\r\n");
+        return -1;
+    }
+
+    netif_set_default(echo_netif);
+    platform_enable_interrupts();
+    netif_set_up(echo_netif);
+
+    if (Init_VDMA() != XST_SUCCESS) {
+        xil_printf("VDMA Init Failed\r\n");
+    }
+
+    // 初始化发送 PCB
+    pcb = udp_new();
+    ip_addr_t broadcast_ip;
+    IP4_ADDR(&broadcast_ip, 192, 168, 0, 255);
+    udp_bind(pcb, IP_ADDR_ANY, 0);
+    udp_connect(pcb, &broadcast_ip, PC_PORT);
+    xil_printf("UDP TX Setup Complete. Broadcasting to %s:%d\r\n", BROADCAST_IP, PC_PORT);
+
+    // 【新增】初始化接收 PCB
+    Setup_RX_UDP();
+
+    while (1) {
+        if (TcpFastTmrFlag) {
+            tcp_fasttmr();
+            TcpFastTmrFlag = 0;
+        }
+        if (TcpSlowTmrFlag) {
+            tcp_slowtmr();
+            TcpSlowTmrFlag = 0;
+        }
+
+        // 处理接收包 (Upload 图片会在这里被处理)
+        xemacif_input(echo_netif);
+
+        // 发送视频帧 (会根据 display_mode 决定发什么)
+        Send_Frame_UDP();
+
+        // 错误处理逻辑 (Clear Error)
+        u32 status = XAxiVdma_GetStatus(&Vdma, XAXIVDMA_WRITE);
+        if (status & XAXIVDMA_SR_ERR_ALL_MASK) {
+             XAxiVdma_WriteReg(Vdma.BaseAddr, 0x34, status & XAXIVDMA_SR_ERR_ALL_MASK);
+        }
+
+        // 延时
+        usleep(100000);
+    }
+
+    cleanup_platform();
+    return 0;
+}

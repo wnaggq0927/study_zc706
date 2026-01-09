@@ -1,0 +1,216 @@
+/*
+ * ZC706 UDP Real-time Video Stream (1080p Ping-Pong)
+ * Resolution: 1920x1080
+ */
+
+#include <stdio.h>
+#include "xparameters.h"
+#include "netif/xadapter.h"
+#include "platform.h"
+#include "platform_config.h"
+#include "xil_printf.h"
+#include "lwip/udp.h"
+#include "xil_cache.h"
+#include "xaxivdma.h"
+#include "sleep.h"
+#include "lwip/tcp.h"
+
+// ================= 配置区域 =================
+#define BROADCAST_IP "192.168.0.255"
+#define PC_PORT       5005
+#define BOARD_MAC  {0x00, 0x0a, 0x35, 0x00, 0x01, 0x02}
+
+// --- 内存地址规划 ---
+#define DDR_ADDR_MANDEL   0x10000000  // 区域 A
+#define DDR_ADDR_IMG1     0x11000000  // 区域 B: 图片 1 (乒)
+#define DDR_ADDR_IMG2     0x12000000  // 区域 C: 图片 2 (乓) - 偏移16MB足够放1080p(6MB)
+#define UDP_RECV_PORT     5006        // 监听端口
+
+// --- 分辨率设置 (1080p) ---
+#define H_RES            1920
+#define V_RES            1080
+#define BYTES_PER_PIXEL  3
+#define LINE_SIZE        (H_RES * BYTES_PER_PIXEL)
+
+// ================= 全局变量 =================
+static struct netif server_netif;
+struct netif *echo_netif;
+struct udp_pcb *pcb;
+struct udp_pcb *recv_pcb;
+XAxiVdma Vdma;
+
+extern volatile int TcpFastTmrFlag;
+extern volatile int TcpSlowTmrFlag;
+
+// 全局变量：控制当前显示哪个画面
+volatile int display_mode = 0;
+
+// ================= UDP 接收回调函数 (乒乓切换) =================
+void image_upload_callback(void *arg, struct udp_pcb *tpcb, struct pbuf *p, const ip_addr_t *addr, u16_t port) {
+    if (p == NULL) return;
+
+    // 协议头: [ID, Offset]
+    if (p->len > 8) {
+        u32 *header = (u32 *)p->payload;
+        u32 img_id = header[0];
+        u32 offset = header[1];
+
+        u32 base_addr = (img_id == 2) ? DDR_ADDR_IMG2 : DDR_ADDR_IMG1;
+        u8 *target_addr = (u8 *)(base_addr + offset);
+
+        memcpy(target_addr, (u8 *)p->payload + 8, p->len - 8);
+        Xil_DCacheFlushRange((INTPTR)target_addr, p->len - 8);
+
+        // 实时乒乓切换：写1看2，写2看1
+        if (img_id == 1) {
+            display_mode = 2;
+        } else {
+            display_mode = 1;
+        }
+    }
+    pbuf_free(p);
+}
+
+// ================= 初始化 =================
+void Setup_RX_UDP() {
+    recv_pcb = udp_new();
+    udp_bind(recv_pcb, IP_ADDR_ANY, UDP_RECV_PORT);
+    udp_recv(recv_pcb, image_upload_callback, NULL);
+    xil_printf("Listening for 1080p stream on port %d...\r\n", UDP_RECV_PORT);
+}
+
+int Init_VDMA() {
+    XAxiVdma_Config *Config = XAxiVdma_LookupConfig(XPAR_AXIVDMA_0_DEVICE_ID);
+    if (!Config) return XST_FAILURE;
+    XAxiVdma_CfgInitialize(&Vdma, Config, Config->BaseAddress);
+
+    XAxiVdma_DmaSetup WriteCfg;
+    WriteCfg.VertSizeInput = V_RES;
+    WriteCfg.HoriSizeInput = LINE_SIZE;
+    WriteCfg.Stride        = LINE_SIZE;
+    WriteCfg.FrameDelay    = 0;
+    WriteCfg.EnableCircularBuf = 1;
+    WriteCfg.EnableSync    = 0;
+    WriteCfg.PointNum      = 0;
+    WriteCfg.EnableFrameCounter = 0;
+    WriteCfg.FixedFrameStoreAddr = 0;
+
+    UINTPTR FrameAddr[3];
+    FrameAddr[0] = DDR_ADDR_MANDEL;
+    FrameAddr[1] = DDR_ADDR_MANDEL + V_RES * LINE_SIZE;
+    FrameAddr[2] = DDR_ADDR_MANDEL + 2 * V_RES * LINE_SIZE;
+
+    XAxiVdma_DmaConfig(&Vdma, XAXIVDMA_WRITE, &WriteCfg);
+    XAxiVdma_DmaSetBufferAddr(&Vdma, XAXIVDMA_WRITE, FrameAddr);
+    XAxiVdma_DmaStart(&Vdma, XAXIVDMA_WRITE);
+    return XST_SUCCESS;
+}
+
+void Send_Frame_UDP() {
+    struct pbuf *p;
+    err_t err;
+
+    u32 current_addr;
+    if (display_mode == 1)      current_addr = DDR_ADDR_IMG1;
+    else if (display_mode == 2) current_addr = DDR_ADDR_IMG2;
+    else                        current_addr = DDR_ADDR_MANDEL;
+
+    u8 *line_ptr = (u8 *)current_addr;
+    Xil_DCacheInvalidateRange(current_addr, V_RES * LINE_SIZE);
+
+    int total_len = V_RES * LINE_SIZE;
+    int chunk_size = 1450; // 最佳包长
+    int sent_len = 0;
+
+    while (sent_len < total_len) {
+        int len = (total_len - sent_len > chunk_size) ? chunk_size : (total_len - sent_len);
+        p = pbuf_alloc(PBUF_TRANSPORT, len, PBUF_REF);
+
+        if (p != NULL) {
+            p->payload = line_ptr + sent_len;
+            err = udp_send(pcb, p);
+
+            if (err == ERR_OK) {
+                pbuf_free(p);
+                sent_len += len;
+                xemacif_input(echo_netif);
+                usleep(1); // 1080p下如果回显卡顿，可以稍微加大到 5
+            } else {
+                pbuf_free(p);
+                xemacif_input(echo_netif);
+                usleep(20);
+            }
+        } else {
+            xemacif_input(echo_netif);
+            usleep(20);
+        }
+    }
+}
+
+// ================= 硬件初始化辅助函数 =================
+#if defined (__arm__) && !defined (ARMR5)
+#if XPAR_GIGE_PCS_PMA_SGMII_CORE_PRESENT == 1 || XPAR_GIGE_PCS_PMA_1000BASEX_CORE_PRESENT == 1
+int ProgramSi5324(void);
+int ProgramSfpPhy(void);
+#endif
+#endif
+
+// ================= 主函数 =================
+int main()
+{
+    ip_addr_t ipaddr, netmask, gw;
+    unsigned char mac_ethernet_address[] = BOARD_MAC;
+    echo_netif = &server_netif;
+
+#if defined (__arm__) && !defined (ARMR5)
+#if XPAR_GIGE_PCS_PMA_SGMII_CORE_PRESENT == 1 || XPAR_GIGE_PCS_PMA_1000BASEX_CORE_PRESENT == 1
+    ProgramSi5324();
+    ProgramSfpPhy();
+#endif
+#endif
+
+    init_platform();
+    IP4_ADDR(&ipaddr,  192, 168,   0, 20);
+    IP4_ADDR(&netmask, 255, 255, 255,  0);
+    IP4_ADDR(&gw,      192, 168,   0,  1);
+
+    xil_printf("\r\n--- ZC706 1080p Video Streamer ---\r\n");
+
+    lwip_init();
+    if (!xemac_add(echo_netif, &ipaddr, &netmask, &gw, mac_ethernet_address, PLATFORM_EMAC_BASEADDR)) {
+        xil_printf("Error adding N/W interface\r\n");
+        return -1;
+    }
+
+    netif_set_default(echo_netif);
+    platform_enable_interrupts();
+    netif_set_up(echo_netif);
+
+    if (Init_VDMA() != XST_SUCCESS) xil_printf("VDMA Init Failed\r\n");
+
+    pcb = udp_new();
+    ip_addr_t broadcast_ip;
+    IP4_ADDR(&broadcast_ip, 192, 168, 0, 255);
+    udp_bind(pcb, IP_ADDR_ANY, 0);
+    udp_connect(pcb, &broadcast_ip, PC_PORT);
+
+    Setup_RX_UDP();
+
+    xil_printf("System Ready.\r\n");
+
+    while (1) {
+        if (TcpFastTmrFlag) { tcp_fasttmr(); TcpFastTmrFlag = 0; }
+        if (TcpSlowTmrFlag) { tcp_slowtmr(); TcpSlowTmrFlag = 0; }
+
+        xemacif_input(echo_netif);
+        Send_Frame_UDP();
+
+        u32 status = XAxiVdma_GetStatus(&Vdma, XAXIVDMA_WRITE);
+        if (status & XAXIVDMA_SR_ERR_ALL_MASK) {
+             XAxiVdma_WriteReg(Vdma.BaseAddr, 0x34, status & XAXIVDMA_SR_ERR_ALL_MASK);
+        }
+        usleep(10);
+    }
+    cleanup_platform();
+    return 0;
+}
